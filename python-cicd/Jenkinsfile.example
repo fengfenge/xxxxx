@@ -1,0 +1,153 @@
+// Jenkinsfile.example — 业务项目模板（参数选择 Stage + 按需调用 vars）
+// 复制到业务仓库根目录，重命名为 Jenkinsfile
+
+@Library('ci-shared-lib@main') _
+
+// 解析部署环境列表（参数 DEPLOY_ENVS=staging,prod）
+def parseEnvs(String raw) {
+    if (!raw?.trim()) return ['dev']
+    return raw.split(',').collect { it.trim() }.findAll { it }
+}
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        string(name: 'APP_NAME', defaultValue: 'order-service', description: '应用/服务名')
+        choice(name: 'LANGUAGE', choices: ['java', 'python', 'nodejs', 'go'], description: '语言')
+        choice(name: 'BUILD_TOOL', choices: ['maven', 'gradle', 'npm', 'pip'], description: '构建工具')
+        string(name: 'DEPLOY_ENVS', defaultValue: 'staging,prod', description: '部署环境，逗号分隔')
+        string(name: 'K8S_NAMESPACE', defaultValue: 'order-system', description: 'K8s 命名空间')
+        string(name: 'HARBOR_PROJECT', defaultValue: 'backend-services', description: 'Harbor 项目')
+        string(name: 'CICD_ROOT', defaultValue: '/opt/jenkins/python-cicd', description: 'Python 库路径（Master 预装）')
+        credentials(name: 'GIT_CREDENTIALS_ID', defaultValue: 'gitlab-credentials',
+            credentialType: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl',
+            description: 'Git 凭据')
+        booleanParam(name: 'SKIP_SECURITY', defaultValue: false, description: '跳过安全扫描')
+        booleanParam(name: 'REQUIRE_APPROVAL', defaultValue: true, description: 'uat/staging/prod 是否审批')
+        // ★ 核心：选择要执行的 Stage（留空=全部）
+        string(
+            name: 'CICD_STEPS',
+            defaultValue: '',
+            description: '''留空=完整流程。按需填写，逗号分隔:
+init, checkout, build, docker, scan, approve, deploy, notify
+示例仅构建: init,checkout,build
+示例跳过扫描: init,checkout,build,docker,approve,deploy,notify'''
+        )
+    }
+
+    stages {
+        stage('Init') {
+            when { expression { shouldRunStage('init') } }
+            steps {
+                script {
+                    cicdInit(
+                        cicdRoot     : params.CICD_ROOT,
+                        appName      : params.APP_NAME,
+                        language     : params.LANGUAGE,
+                        buildTool    : params.BUILD_TOOL,
+                        envs         : parseEnvs(params.DEPLOY_ENVS),
+                        k8sNamespace : params.K8S_NAMESPACE,
+                        harborProject: params.HARBOR_PROJECT
+                    )
+                }
+            }
+        }
+
+        stage('Checkout') {
+            when { expression { shouldRunStage('checkout') } }
+            steps {
+                script {
+                    gitCheckoutStage(credentialsId: params.GIT_CREDENTIALS_ID)
+                }
+            }
+        }
+
+        stage('Build') {
+            when { expression { shouldRunStage('build') } }
+            steps {
+                script {
+                    buildStage(
+                        language : params.LANGUAGE,
+                        buildTool: params.BUILD_TOOL
+                    )
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            when { expression { shouldRunStage('docker') } }
+            steps {
+                script {
+                    dockerBuildStage(
+                        appName      : params.APP_NAME,
+                        harborProject: params.HARBOR_PROJECT
+                    )
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            when {
+                allOf {
+                    expression { shouldRunStage('scan') }
+                    expression { return !params.SKIP_SECURITY }
+                }
+            }
+            steps {
+                script { securityScanStage() }
+            }
+        }
+
+        stage('Approve & Deploy') {
+            when { expression { shouldRunStage('deploy') || shouldRunStage('approve') } }
+            steps {
+                script {
+                    parseEnvs(params.DEPLOY_ENVS).each { targetEnv ->
+                        echo "🎯 目标环境: ${targetEnv}"
+                        if (shouldRunStage('approve') && params.REQUIRE_APPROVAL) {
+                            approvalStage(environment: targetEnv)
+                        }
+                        if (shouldRunStage('deploy')) {
+                            deployStage(
+                                environment: targetEnv,
+                                namespace  : params.K8S_NAMESPACE,
+                                appName    : params.APP_NAME
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Notify') {
+            when { expression { shouldRunStage('notify') } }
+            steps {
+                script {
+                    notifyStage(
+                        appName : params.APP_NAME,
+                        envs    : parseEnvs(params.DEPLOY_ENVS),
+                        status  : 'SUCCESS'
+                    )
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            script {
+                if (shouldRunStage('notify')) {
+                    notifyStage(appName: params.APP_NAME, status: 'FAILED')
+                }
+            }
+        }
+    }
+}

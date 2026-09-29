@@ -1,0 +1,42 @@
+# ---------- 开发环境 ----------
+[dev_kafka]
+192.168.13.36  kafka_broker_id=1
+192.168.13.37  kafka_broker_id=2
+192.168.13.38  kafka_broker_id=3
+
+[dev_kafka:vars]
+env=development
+
+# ---------- 测试环境 ----------
+[test_kafka]
+192.168.13.59  kafka_broker_id=1
+192.168.13.60  kafka_broker_id=2
+192.168.13.61  kafka_broker_id=3
+
+[test_kafka:vars]
+env=testing
+
+# ---------- 预发布环境 ----------
+[uat_kafka]
+192.168.13.80  kafka_broker_id=1
+192.168.13.81  kafka_broker_id=2
+192.168.13.82  kafka_broker_id=3
+
+[uat_kafka:vars]
+env=uat
+
+# ---------- 全局变量 ----------
+[all:vars]
+# SSH 连接配置（按实际修改）
+ansible_user=root
+ansible_ssh_pass=1
+# ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# 服务路径
+java_home=/opt/server/jdk
+zookeeper_bin=/opt/server/zookeeper/bin
+kafka_bin=/opt/server/kafka/bin
+kafka_config=/opt/server/kafka/config/server.properties
+
+# Kafka 启动间隔（秒）
+kafka_start_interval=30

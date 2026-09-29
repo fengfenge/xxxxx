@@ -1,0 +1,79 @@
+# ============================================================
+# 集群主机清单 (Kafka / Zookeeper / MongoDB / Kubernetes)
+# ============================================================
+
+# ==================== Kafka + Zookeeper ====================
+
+# ---------- 开发环境 ----------
+[dev_kafka]
+192.168.13.36  kafka_broker_id=1
+192.168.13.37  kafka_broker_id=2
+192.168.13.38  kafka_broker_id=3
+
+[dev_kafka:vars]
+env=development
+
+# ---------- 测试环境 ----------
+[test_kafka]
+192.168.13.59  kafka_broker_id=1
+192.168.13.60  kafka_broker_id=2
+192.168.13.61  kafka_broker_id=3
+
+[test_kafka:vars]
+env=testing
+
+# ==================== MongoDB ====================
+
+# ---------- 开发环境 ----------
+[dev_mongo]
+192.168.13.36  mongo_port=27017
+192.168.13.37  mongo_port=27017
+192.168.13.38  mongo_port=27017
+
+[dev_mongo:vars]
+env=development
+mongo_start_script=/opt/server/mongodb/bin/start.sh
+
+# ---------- 测试环境 ----------
+[test_mongo]
+192.168.13.59  mongo_port=27017
+192.168.13.60  mongo_port=27017
+192.168.13.61  mongo_port=27017
+
+[test_mongo:vars]
+env=testing
+mongo_start_script=/data/server/mongodb/start.sh
+
+# ==================== Kubernetes ====================
+
+# ---------- 开发/测试环境 ----------
+[k8s_master]
+192.168.1.10  node_ip=192.168.1.10
+
+[k8s_node]
+192.168.1.11  node_ip=192.168.1.11
+192.168.1.12  node_ip=192.168.1.12
+192.168.1.13  node_ip=192.168.1.13
+
+[k8s_cluster:children]
+k8s_master
+k8s_node
+
+[k8s_cluster:vars]
+env=k8s
+
+# ---------- 全局变量 ----------
+[all:vars]
+# SSH 连接配置（按实际修改）
+ansible_user=root
+ansible_ssh_pass=1
+# ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# 服务路径
+java_home=/opt/server/jdk
+zookeeper_bin=/opt/server/zookeeper/bin
+kafka_bin=/opt/server/kafka/bin
+kafka_config=/opt/server/kafka/config/server.properties
+
+# Kafka 启动间隔（秒）
+kafka_start_interval=30

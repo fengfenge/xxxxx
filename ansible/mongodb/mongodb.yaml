@@ -1,0 +1,66 @@
+# ============================================================
+# MongoDB 集群启动 Playbook
+# 使用方式:
+#   ansible-playbook -i hosts mongodb.yaml -l dev_mongo
+#   ansible-playbook -i hosts mongodb.yaml -l test_mongo
+#   ansible-playbook -i hosts mongodb.yaml -l uat_mongo
+#   ansible-playbook -i hosts mongodb.yaml 
+# ============================================================
+
+# ============================================================
+# Play 1: 依次启动 MongoDB 节点（serial:1 逐台启动）
+# ============================================================
+- name: "[Step 1] 依次启动 MongoDB 节点"
+  hosts: all
+  gather_facts: no
+  serial: 1
+  tasks:
+    - name: 检查 MongoDB 是否已运行
+      shell: ss -tlnp 2>/dev/null | grep -c ':27017 ' || netstat -tlnp 2>/dev/null | grep -c ':27017 ' || echo 0
+      register: mongo_pre_check
+      changed_when: false
+      ignore_errors: yes
+
+    # - name: 执行 MongoDB 启动脚本
+    #   shell: |
+    #     {{ mongo_start_script }}
+    #   register: mongo_result
+    #   when: (mongo_pre_check.stdout | default('0') | trim | int) == 0
+    - name: 执行 MongoDB 启动脚本
+      shell: "{{ mongo_start_script }}"
+      args:
+        chdir: "{{ mongo_start_script | dirname }}"
+      when: (mongo_pre_check.stdout | default('0') | trim | int) == 0
+
+    - name: 等待 MongoDB 端口监听（27017）
+      wait_for:
+        port: 27017
+        host: "{{ inventory_hostname }}"
+        delay: 3
+        timeout: 30
+      when: (mongo_pre_check.stdout | default('0') | trim | int) == 0
+      ignore_errors: yes
+
+    - name: 检查 MongoDB 进程
+      shell: ps -ef | grep mongod | grep -v grep | wc -l
+      register: mongo_process
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 显示启动结果
+      debug:
+        msg: |
+          ========================================
+          [{{ inventory_hostname }}]
+          {% if (mongo_pre_check.stdout | default('0') | trim | int) > 0 %}
+          MongoDB 已在运行，跳过启动
+          {% else %}
+          MongoDB 已执行启动脚本
+          {% endif %}
+          进程数: {{ mongo_process.stdout | default('0') | trim }}
+          {% if (mongo_process.stdout | default('0') | trim | int) > 0 %}
+          状态: ✅ 运行中
+          {% else %}
+          状态: ❌ 未运行
+          {% endif %}
+          ========================================

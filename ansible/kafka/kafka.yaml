@@ -1,0 +1,182 @@
+# ============================================================
+# Kafka 集群启动 Playbook
+# 使用方式:
+#   开发环境: ansible-playbook -i hosts kafka.yaml -l dev_kafka
+#   测试环境: ansible-playbook -i hosts kafka.yaml -l test_kafka
+#   单步执行: ansible-playbook -i hosts kafka.yaml --tags zookeeper
+#            ansible-playbook -i hosts kafka.yaml --tags kafka
+# ============================================================
+
+# ============================================================
+# Play 1: 启动所有节点的 Zookeeper（并行执行）
+# ============================================================
+- name: "[Step 1] 启动所有节点的 Zookeeper"
+  hosts: all
+  gather_facts: no
+  serial: 1
+  tags: [zookeeper]
+  tasks:
+    - name: 检查 Zookeeper 是否已运行
+      shell: ss -tlnp 2>/dev/null | grep -c ':2181 ' || netstat -tlnp 2>/dev/null | grep -c ':2181 ' || echo 0
+      register: zk_pre_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 启动 Zookeeper 服务
+      shell: |
+        cd {{ zookeeper_bin }}/.. && {{ zookeeper_bin }}/zkServer.sh start
+      environment:
+        JAVA_HOME: "{{ java_home }}"
+        PATH: "{{ java_home }}/bin:{{ ansible_env.PATH | default('/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin') }}"
+      async: 120
+      poll: 5
+      when: (zk_pre_check.stdout | default('0') | trim | int) == 0
+      changed_when: true
+
+    - name: 等待 Zookeeper 端口监听
+      wait_for:
+        port: 2181
+        host: "{{ inventory_hostname }}"
+        delay: 2
+        timeout: 30
+      when: (zk_pre_check.stdout | default('0') | trim | int) == 0
+      ignore_errors: yes
+
+    - name: 检查 ZK 进程是否存活
+      shell: ps -ef | grep zookeeper | grep -v grep | wc -l
+      register: zk_alive
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 检查 ZK 端口当前状态
+      shell: ss -tlnp 2>/dev/null | grep -c ':2181 ' || netstat -tlnp 2>/dev/null | grep -c ':2181 ' || echo 0
+      register: zk_port_now
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 显示 Zookeeper 启动诊断
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════╗
+          ║  [{{ inventory_hostname }}] ZK 启动诊断
+          ╠═══════════════════════════════════════╣
+          ║  端口 2181: {% if (zk_port_now.stdout | default('0') | trim | int) > 0 %}✅ 监听中{% else %}❌ 未监听{% endif %}
+          ║  进程存活: {{ zk_alive.stdout | default('0') | trim }}
+          ║  {% if (zk_alive.stdout | default('0') | trim | int) == 0 %}
+          ║  ❌ ZK 进程崩溃
+          ║  {% else %}
+          ║  ✅ ZK 运行中
+          ║  {% endif %}
+          ╚═══════════════════════════════════════╝
+
+# ============================================================
+# Play 2: 依次启动 Kafka（serial:1 确保逐台启动）
+# ============================================================
+- name: "[Step 2] 依次启动 Kafka 节点"
+  hosts: all
+  gather_facts: no
+  serial: 1
+  tags: [kafka]
+  tasks:
+    - name: 检查 Kafka 是否已运行
+      shell: ss -tlnp 2>/dev/null | grep -c ':9092 ' || netstat -tlnp 2>/dev/null | grep -c ':9092 ' || echo 0
+      register: kafka_pre_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 启动 Kafka 服务
+      shell: |
+        {{ kafka_bin }}/kafka-server-start.sh -daemon {{ kafka_config }}
+      environment:
+        JAVA_HOME: "{{ java_home }}"
+        PATH: "{{ java_home }}/bin:{{ ansible_env.PATH | default('/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin') }}"
+      when: (kafka_pre_check.stdout | default('0') | trim | int) == 0
+      changed_when: true
+
+    - name: 等待 Kafka 端口监听（9092）
+      wait_for:
+        port: 9092
+        host: "{{ inventory_hostname }}"
+        delay: 5
+        timeout: 30
+      when: (kafka_pre_check.stdout | default('0') | trim | int) == 0
+      ignore_errors: yes
+
+    - name: 等待 Kafka 完全启动
+      pause:
+        seconds: "{{ kafka_start_interval }}"
+      when:
+        - (kafka_pre_check.stdout | default('0') | trim | int) == 0
+        - not ansible_check_mode
+
+    - name: 检查 Kafka 进程是否存活
+      shell: ps -ef | grep kafka | grep -v grep | wc -l
+      register: kafka_alive
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 检查 Kafka 端口当前状态
+      shell: ss -tlnp 2>/dev/null | grep -c ':9092 ' || netstat -tlnp 2>/dev/null | grep -c ':9092 ' || echo 0
+      register: kafka_port_now
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 获取 Kafka 启动日志
+      shell: |
+        tail -30 /opt/server/kafka/logs/server.log 2>/dev/null | grep -E "Kafka version|started|ERROR" | tail -5
+      register: kafka_log
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 显示 Kafka 启动诊断
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════╗
+          ║  [{{ inventory_hostname }}] Broker ID: {{ kafka_broker_id }}
+          ╠═══════════════════════════════════════╣
+          ║  端口 9092: {% if (kafka_port_now.stdout | default('0') | trim | int) > 0 %}✅ 监听中{% else %}❌ 未监听{% endif %}
+          ║  进程存活: {{ kafka_alive.stdout | default('0') | trim }}
+          ║  {% if (kafka_alive.stdout | default('0') | trim | int) == 0 %}
+          ║  ❌ Kafka 进程崩溃！最近日志 ↓
+          ║  {{ kafka_log.stdout | default('无日志') }}
+          ║  {% else %}
+          ║  ✅ Kafka 运行中
+          ║  {% endif %}
+          ╚═══════════════════════════════════════╝
+
+# ============================================================
+# Play 3: 最终集群状态检查
+# ============================================================
+- name: "[Step 3] 集群状态汇总"
+  hosts: all
+  gather_facts: no
+  tags: [status]
+  tasks:
+    - name: 检查各节点 Kafka 端口
+      wait_for:
+        port: 9092
+        host: "{{ inventory_hostname }}"
+        timeout: 5
+      ignore_errors: yes
+
+    - name: 获取各节点 Kafka 进程数
+      shell: ps -ef | grep kafka | grep -v grep | wc -l
+      register: kafka_count
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 集群状态汇总
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════╗
+          ║     🎯 Kafka 集群状态汇总
+          ╠═══════════════════════════════════════╣
+          {% for host in ansible_play_hosts %}
+          {% set count = hostvars[host].kafka_count.stdout | default('0') | trim | int %}
+          ║  [{{ host }}]  Broker ID: {{ hostvars[host].kafka_broker_id }}
+          ║  └─ Kafka: {% if count > 0 %}✅ {{ count }} 进程{% else %}❌ 未运行{% endif %}
+          {% endfor %}
+          ╠═══════════════════════════════════════╣
+          ║  集群节点总数: {{ ansible_play_hosts | length }}
+          ╚═══════════════════════════════════════╝
+      run_once: true

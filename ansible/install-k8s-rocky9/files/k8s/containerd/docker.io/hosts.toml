@@ -1,0 +1,22 @@
+server = "https://docker.io"
+
+[host."https://xk9ak4u9.mirror.aliyuncs.com"]
+  capabilities = ["pull","resolve"]
+
+[host."https://docker.m.daocloud.io"]
+  capabilities = ["pull","resolve"]
+
+[host."https://dockerproxy.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://docker.mirrors.sjtug.sjtu.edu.cn"]
+  capabilities = ["pull","resolve"]
+
+[host."https://docker.mirrors.ustc.edu.cn"]
+  capabilities = ["pull","resolve"]
+
+[host."https://docker.nju.edu.cn"]
+  capabilities = ["pull","resolve"]
+
+[host."https://registry-1.docker.io"]
+  capabilities = ["pull","resolve","push"]

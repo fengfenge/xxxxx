@@ -1,0 +1,79 @@
+# ============================================================
+# Play 1: 启动所有节点的 Zookeeper（并行执行）
+# 使用方式:
+#   开发环境: ansible-playbook -i hosts clickhouse-zoo.yaml -l dev_kafka
+# ============================================================
+- name: "[Step 1] 启动所有节点的 Zookeeper"
+  hosts: all
+  gather_facts: no
+  serial: 1
+  tags: [zookeeper]
+  tasks:
+    - name: 检查 Zookeeper 是否已运行
+      shell: ss -tlnp 2>/dev/null | grep -c ':2181 ' || netstat -tlnp 2>/dev/null | grep -c ':2181 ' || echo 0
+      register: zk_pre_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 启动 Zookeeper 服务
+      shell: |
+        cd {{ zookeeper_bin }}/.. && {{ zookeeper_bin }}/zkServer.sh start
+      environment:
+        JAVA_HOME: "{{ java_home }}"
+        PATH: "{{ java_home }}/bin:{{ ansible_env.PATH | default('/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin') }}"
+      async: 120
+      poll: 5
+      when: (zk_pre_check.stdout | default('0') | trim | int) == 0
+      changed_when: true
+
+    - name: 等待 Zookeeper 端口监听
+      wait_for:
+        port: 2181
+        host: "{{ inventory_hostname }}"
+        delay: 2
+        timeout: 30
+      when: (zk_pre_check.stdout | default('0') | trim | int) == 0
+      ignore_errors: yes
+
+    - name: 检查 ZK 进程是否存活
+      shell: |
+        ps -ef | grep zookeeper | grep -v grep | wc -l
+      register: zk_alive
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 检查 ZK 端口当前状态
+      shell: ss -tlnp 2>/dev/null | grep -c ':2181 ' || netstat -tlnp 2>/dev/null | grep -c ':2181 ' || echo 0
+      register: zk_port_now
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 获取 ZK 启动日志（zookeeper.out 最后 30 行）
+      shell: |
+        ZK_HOME=$(dirname {{ zookeeper_bin | regex_replace('^"|"$', '') }})
+        if [ -f "$ZK_HOME/zookeeper.out" ]; then
+          tail -30 "$ZK_HOME/zookeeper.out"
+        elif [ -f "$ZK_HOME/logs/zookeeper.out" ]; then
+          tail -30 "$ZK_HOME/logs/zookeeper.out"
+        else
+          find . -name "zookeeper.out" -type f 2>/dev/null | head -1 | xargs tail -30 2>/dev/null || echo "找不到 zookeeper.out 日志文件"
+        fi
+      register: zk_log
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 显示 Zookeeper 启动诊断
+      debug:
+        msg: |
+          ╔═══════════════════════════════════════╗
+          ║  [{{ inventory_hostname }}] ZK 启动诊断
+          ╠═══════════════════════════════════════╣
+          ║  端口 2181: {% if (zk_port_now.stdout | default('0') | trim | int) > 0 %}✅ 监听中{% else %}❌ 未监听{% endif %}
+          ║  进程存活: {{ zk_alive.stdout | default('0') | trim }}
+          ║  {% if (zk_alive.stdout | default('0') | trim | int) == 0 %}
+          ║  ❌ ZK 进程崩溃！最近日志 ↓
+          ║  {{ zk_log.stdout | default('无日志') }}
+          ║  {% else %}
+          ║  ✅ ZK 运行中
+          ║  {% endif %}
+          ╚═══════════════════════════════════════╝

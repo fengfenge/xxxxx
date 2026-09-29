@@ -1,0 +1,195 @@
+// 回滚部署专用 Jenkinsfile
+// 集成企业微信通知、发布单状态更新、发布记录
+// 支持回滚到上一版本或指定版本
+
+@Library('devops-shared-lib@master') _
+
+pipeline {
+    agent any
+    options {
+        timestamps()
+        timeout(time: 20, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+    }
+
+    parameters {
+        choice(
+            name: 'TARGET_ENV',
+            choices: ['prod', 'uat', 'test', 'dev'],
+            description: '回滚目标环境'
+        )
+        string(
+            name: 'DEPLOYMENT_NAME',
+            defaultValue: '',
+            description: 'Deployment 名称（不填则使用 Job 名称）'
+        )
+        string(
+            name: 'REVISION',
+            defaultValue: '',
+            description: '回滚到指定版本号（不填则回滚到上一版本）'
+        )
+        string(
+            name: 'NAMESPACE',
+            defaultValue: '',
+            description: 'K8s 命名空间（不填则使用 env.K8S_NAMESPACE）'
+        )
+        booleanParam(
+            name: 'SHOW_HISTORY_FIRST',
+            defaultValue: true,
+            description: '先显示版本历史再执行回滚'
+        )
+        string(
+            name: 'ROLLBACK_REASON',
+            defaultValue: '',
+            description: '回滚原因（必填，会记录到发布记录）'
+        )
+        string(
+            name: 'RELATED_TICKET_ID',
+            defaultValue: '',
+            description: '关联的原发布单号（可选，用于追溯）'
+        )
+    }
+
+    stages {
+        stage('1. 参数验证') {
+            steps {
+                script {
+                    if (!params.ROLLBACK_REASON?.trim()) {
+                        echo "⚠️ 建议填写回滚原因，便于后续追溯"
+                    }
+
+                    echo "=========================================="
+                    echo "↩️  回滚参数确认"
+                    echo "=========================================="
+                    echo "目标环境：${params.TARGET_ENV}"
+                    echo "Deployment：${params.DEPLOYMENT_NAME ?: '使用 Job 名称'}"
+                    echo "回滚版本：${params.REVISION ?: '上一版本'}"
+                    echo "命名空间：${params.NAMESPACE?.trim() ?: '默认'}"
+                    echo "回滚原因：${params.ROLLBACK_REASON ?: '未填写'}"
+                    echo "关联发布单：${params.RELATED_TICKET_ID ?: '无'}"
+                    echo "=========================================="
+
+                    env.ENV = params.TARGET_ENV
+                }
+            }
+        }
+
+        stage('2. 显示版本历史') {
+            when {
+                expression { return params.SHOW_HISTORY_FIRST }
+            }
+            steps {
+                script {
+                    echo "📋 正在获取版本历史..."
+                    rollbackDeploy.getHistory(
+                        env: params.TARGET_ENV,
+                        deploymentName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                        namespace: params.NAMESPACE?.trim() ?: null,
+                        maxRevisions: 10
+                    )
+                }
+            }
+        }
+
+        stage('3. 回滚审批') {
+            when {
+                expression { return params.TARGET_ENV in ['prod', 'uat'] }
+            }
+            steps {
+                script {
+                    // 发送企业微信回滚通知
+                    wecomApprove.sendRollbackNotification(
+                        env: params.TARGET_ENV,
+                        serviceName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                        reason: params.ROLLBACK_REASON,
+                        operator: env.BUILD_USER_ID ?: 'system'
+                    )
+
+                    // uat/prod 环境需要审批确认
+                    def userInput = input(
+                        message: """
+                        ⚠️ **${params.TARGET_ENV.toUpperCase()} 环境回滚确认** ⚠️
+
+                        Deployment：${params.DEPLOYMENT_NAME ?: env.JOB_NAME}
+                        回滚版本：${params.REVISION ?: '上一版本'}
+                        回滚原因：${params.ROLLBACK_REASON ?: '未填写'}
+
+                        请确认是否执行回滚操作？
+                        """,
+                        ok: '确认回滚',
+                        submitterParameter: 'ROLLBACK_APPROVER',
+                        timeout: [time: 15, unit: 'MINUTES']
+                    )
+
+                    env.PROD_APPROVER = userInput
+                }
+            }
+        }
+
+        stage('4. 执行回滚') {
+            steps {
+                script {
+                    rollbackDeploy(
+                        env: params.TARGET_ENV,
+                        deploymentName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                        revision: params.REVISION ?: null,
+                        namespace: params.NAMESPACE?.trim() ?: null
+                    )
+                }
+            }
+        }
+
+        stage('5. 记录回滚') {
+            steps {
+                script {
+                    // 记录回滚到发布记录
+                    releaseRecord.recordRollback(
+                        serviceName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                        env: params.TARGET_ENV,
+                        reason: params.ROLLBACK_REASON,
+                        operator: env.PROD_APPROVER ?: env.BUILD_USER_ID ?: 'system',
+                        rollbackFromTicket: params.RELATED_TICKET_ID
+                    )
+
+                    // 更新原发布单状态（如果有关联的发布单）
+                    if (params.RELATED_TICKET_ID) {
+                        releaseTicket.recordRollback(
+                            ticketId: params.RELATED_TICKET_ID,
+                            env: params.TARGET_ENV,
+                            reason: params.ROLLBACK_REASON,
+                            operator: env.PROD_APPROVER ?: env.BUILD_USER_ID ?: 'system'
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                echo "✅ 回滚成功！"
+                messageNotify("SUCCESS", "回滚成功：${params.TARGET_ENV} 环境")
+
+                // 发送企业微信回滚结果通知
+                wecomApprove.sendDeployResultNotification(
+                    status: 'SUCCESS',
+                    env: params.TARGET_ENV,
+                    serviceName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                    approver: env.PROD_APPROVER ?: env.BUILD_USER_ID ?: 'system'
+                )
+            }
+        }
+        failure {
+            script {
+                echo "❌ 回滚失败！"
+                messageNotify("FAILED", "回滚失败：${params.TARGET_ENV} 环境")
+            }
+        }
+        aborted {
+            script {
+                echo "⚠️ 回滚已取消"
+            }
+        }
+    }
+}

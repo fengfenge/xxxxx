@@ -1,0 +1,4 @@
+alibabacloud-dyvmsapi20170525>=3.0.0
+alibabacloud-tea-openapi>=0.3.0
+alibabacloud-tea-util>=0.3.0
+flask>=2.0.0

@@ -1,0 +1,1914 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>消息队列巡检报告 - 2026-05-13 12:00</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 36px; margin-bottom: 10px; }
+        .header .subtitle { opacity: 0.9; font-size: 16px; }
+        .section-title {
+            padding: 16px 30px 0;
+            font-size: 22px;
+            color: #1e3c72;
+            border-left: 4px solid #667eea;
+            margin: 24px 30px 0;
+        }
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        .summary-card .number { font-size: 32px; font-weight: bold; color: #667eea; }
+        .summary-card .label { color: #6c757d; font-size: 14px; margin-top: 5px; }
+        .details-section { padding: 30px; }
+        .details-section h2 { margin-bottom: 20px; color: #2c3e50; border-bottom: 3px solid #667eea; padding-bottom: 10px; margin-top: 30px; }
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th, .data-table td {
+            padding: 12px;
+            border: 1px solid #e9ecef;
+            text-align: left;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .data-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        .data-table tr:nth-child(even) { background: #f8f9fa; }
+        .footer {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 13px;
+            background: #f8f9fa;
+        }
+        .summary-card.normal .number { color: #28a745; }
+        .summary-card.warning .number { color: #ffc107; }
+        .summary-card.critical .number { color: #dc3545; }
+        .alerts-section {
+            padding: 20px 30px;
+            background: #fff5f5;
+            border-bottom: 2px solid #dc3545;
+        }
+        .alerts-section h2 { color: #dc3545; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .alert-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .alert-table th { background: #dc3545; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .alert-table td { padding: 12px 15px; border-bottom: 1px solid #e9ecef; }
+        .alert-table tr:hover { background: #f8f9fa; }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-warning { background: #ffc107; color: #212529; }
+        .badge-critical { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>消息队列巡检报告</h1>
+        <div class="subtitle">生成时间: 2026-05-13 12:00 | 数据源: Prometheus（Kafka + RabbitMQ）</div>
+    </div>
+
+    <div class="summary-section">
+        <div class="summary-card normal"><div class="number">453</div><div class="label">正常</div></div>
+        <div class="summary-card warning"><div class="number">1</div><div class="label">警告</div></div>
+        <div class="summary-card critical"><div class="number">0</div><div class="label">严重</div></div>
+    </div>
+
+    
+    <div class="alerts-section">
+        <h2>⚠️ 告警详情 (共 1 条)</h2>
+        <table class="alert-table">
+            <thead><tr><th>检查项</th><th>节点/实例</th><th>当前值</th><th>状态</th><th>阈值</th></tr></thead>
+            <tbody>
+                
+                <tr>
+                    <td>队列消息积压</td>
+                    <td>vhost=general-tianpower, queue=report.ck.history.prop.queue</td>
+                    <td><strong>6148.00条</strong></td>
+                    <td><span class="badge badge-warning">警告</span></td>
+                    <td>>1000条</td>
+                </tr>
+                
+            </tbody>
+        </table>
+    </div>
+    
+
+    <div class="details-section">
+        <h2>📋 巡检规则统计</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>集群类型</th><th>检查总数</th><th>正常</th><th>警告</th><th>严重</th>
+                </tr></thead>
+                <tbody>
+                    <tr>
+                        <td>Kafka</td>
+                        <td>277</td>
+                        <td style="color: #28a745; font-weight: bold;">277</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td>RabbitMQ</td>
+                        <td>168</td>
+                        <td style="color: #28a745; font-weight: bold;">167</td>
+                        <td style="background-color: #fff3cd; color: #856404; font-weight: bold;">1</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>总计</strong></td>
+                        <td><strong>445</strong></td>
+                        <td style="color: #28a745; font-weight: bold;"><strong>453</strong></td>
+                        <td style="background-color: #fff3cd; color: #856404; font-weight: bold;"><strong>1</strong></td>
+                        <td><strong>0</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    
+    <div class="section-title">Kafka 集群</div>
+    <div class="summary-section">
+        <div class="summary-card"><div class="number">3</div><div class="label">Brokers</div></div>
+        <div class="summary-card"><div class="number">76</div><div class="label">Topics</div></div>
+        <div class="summary-card"><div class="number">226</div><div class="label">分区数</div></div>
+        <div class="summary-card"><div class="number">44</div><div class="label">消费组</div></div>
+        <div class="summary-card"><div class="number">203</div><div class="label">消费者</div></div>
+        <div class="summary-card"><div class="number">826</div><div class="label">Replicas</div></div>
+        <div class="summary-card"><div class="number">826</div><div class="label">In Sync Replicas</div></div>
+        <div class="summary-card"><div class="number">0</div><div class="label">非首选副本分区</div></div>
+        <div class="summary-card"><div class="number">0.00</div><div class="label">每秒总生产</div></div>
+        <div class="summary-card"><div class="number">0.00</div><div class="label">每秒总消费</div></div>
+        <div class="summary-card"><div class="number">190</div><div class="label">当前总积压</div></div>
+    </div>
+
+    <div class="details-section">
+        <h2>Broker节点信息</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>Broker ID</th><th>地址</th><th>Heap已用(GB)</th><th>Heap最大(GB)</th>
+                    <th>Heap使用率</th><th>磁盘已用(GB)</th><th>磁盘总量(GB)</th>
+                    <th>磁盘使用率</th><th>Leader数量</th>
+                </tr></thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>1</td>
+                        <td>192.168.13.36:9092</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>2</td>
+                        <td>192.168.13.37:9092</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>3</td>
+                        <td>192.168.13.38:9092</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>
+                            0.0%
+                        </td>
+                        <td>0</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>消费组列表</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>消费组</th><th>消费者数</th><th>关联Topic数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>10.244.101.45</td><td>2</td><td>2</td></tr>
+                    
+                    <tr><td>amqp</td><td>15</td><td>15</td></tr>
+                    
+                    <tr><td>amqp-group-2</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>anonymous.16ebed59-8762-42e4-bb5f-71493717e4e3</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>anonymous.bfe7a60b-325e-4084-9496-2d04fb9dd2cc</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>anonymous.d654cb9d-83b8-4bd7-b000-bba813772f07</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>anonymous.e61502a7-9c02-440f-8544-4b418949f7c8</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>anonymous.f291dfff-2278-4f4d-96c6-baff0c0353e9</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>data-router</td><td>14</td><td>7</td></tr>
+                    
+                    <tr><td>device-shadow-model</td><td>6</td><td>2</td></tr>
+                    
+                    <tr><td>gateway-group</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>hub-group-tsl-push</td><td>3</td><td>1</td></tr>
+                    
+                    <tr><td>i18n-resource-global</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec-auth-server</td><td>2</td><td>2</td></tr>
+                    
+                    <tr><td>quec-auth-server-global</td><td>4</td><td>4</td></tr>
+                    
+                    <tr><td>quec-ca-server</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec-cep-rule-engine</td><td>8</td><td>9</td></tr>
+                    
+                    <tr><td>quec-cep-rule-engine-1760956296106</td><td>1</td><td>0</td></tr>
+                    
+                    <tr><td>quec-cloud-log</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec-data-storage-ck</td><td>44</td><td>11</td></tr>
+                    
+                    <tr><td>quec-device-data</td><td>18</td><td>3</td></tr>
+                    
+                    <tr><td>quec-device-mgr</td><td>6</td><td>2</td></tr>
+                    
+                    <tr><td>quec-device-mgr-global</td><td>3</td><td>1</td></tr>
+                    
+                    <tr><td>quec-device-model</td><td>2</td><td>1</td></tr>
+                    
+                    <tr><td>quec-device-shadow</td><td>12</td><td>2</td></tr>
+                    
+                    <tr><td>quec-device-shadow.device-dirft</td><td>6</td><td>1</td></tr>
+                    
+                    <tr><td>quec-device-shadow.global-device-dirft</td><td>6</td><td>1</td></tr>
+                    
+                    <tr><td>quec-model-mgr</td><td>2</td><td>1</td></tr>
+                    
+                    <tr><td>quec-notice-server-global</td><td>2</td><td>2</td></tr>
+                    
+                    <tr><td>quec-ota</td><td>7</td><td>7</td></tr>
+                    
+                    <tr><td>quec-portal</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec-product-mgr</td><td>3</td><td>3</td></tr>
+                    
+                    <tr><td>quec-product-mgr-global</td><td>5</td><td>5</td></tr>
+                    
+                    <tr><td>quec-rule-engine</td><td>4</td><td>5</td></tr>
+                    
+                    <tr><td>quec-rule-engine-online-api</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec-saas-mgr</td><td>2</td><td>1</td></tr>
+                    
+                    <tr><td>quec-south-gateway-consumer-group_2</td><td>1</td><td>2</td></tr>
+                    
+                    <tr><td>quec.cep-engine.storage.1760956230210</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>quec.cep.engine.siddhi.quec-cep-engine-siddhi-0</td><td>3</td><td>1</td></tr>
+                    
+                    <tr><td>quec.cep.engine.storage</td><td>3</td><td>1</td></tr>
+                    
+                    <tr><td>rule-api</td><td>4</td><td>2</td></tr>
+                    
+                    <tr><td>thingModel-group-virtualClient1</td><td>1</td><td>1</td></tr>
+                    
+                    <tr><td>tsl-release-clear-cache</td><td>0</td><td>1</td></tr>
+                    
+                    <tr><td>virtualClient-productCenter-unbindSubDevice</td><td>1</td><td>1</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>Topic 列表</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>分区数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>AEP_MQ_MSG_UP</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ACTION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ROUTER</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_SOURCE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_TIMER</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_BLOOM_PK</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_LIFECYCLE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_LOCATION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_MODEL</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_MODEL_RESERVED</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_OTA_UPGRADE_TRAFFIC</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_BIND_DEVICE_BELONG_IDC</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_BINDING</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_BINDING_INNER</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_GROUP_AUTH</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_GROUP_DEVICE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_THIRDPARTY_TMP_CONFIG_PUSH</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_ABILITY</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_CA</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_EMAIL</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_ENGINE_RULE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_I18N_RESOURCE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_LOGIN</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_MIGRATE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PRE_DEVICE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PRODUCT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PRODUCT_AUTOMATION_CONFIG</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PRODUCT_CONFIGURATION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PRODUCT_DATA_AGGREGATE_CONFIG</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_PROJECT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_ROLE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_SYS_MSG</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_USER</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_USER_DATA_PERMISSION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_I8N_RESOURCE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_LWM2M_MESSAGE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_LWM2M_ONLINE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_LWM2M_REQACK</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_AUDIT_APPLY</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_AUDIT_RESULT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_CEP_AMQP</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_DEVICE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_ENDUSER</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_FAMILY_AUTH</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_PRODUCT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_PRODUCT_CONFIG</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_PROJECT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_SOLUTION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_SUBDEVICE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_THINGMODEL</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_MODEL_TRANSFORM_EXCEPTION</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_MSGSUB_COUNT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_OTA_UPGRADE_LOG_INSERT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_OTA_UPGRADE_NOTICE</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_SUBSCR_EVENT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_USER_EVENT</td><td>3</td></tr>
+                    
+                    <tr><td>QUEC_WEBSOCKET_CLOSE</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_EVENT</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_FAIL_EVENT</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_LOCATION</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_MODEL</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_ONLINE</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_OTA</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_RAW</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_STATUS</td><td>3</td></tr>
+                    
+                    <tr><td>SOUTH_INFORMATION_PASSAGEWAY</td><td>3</td></tr>
+                    
+                    <tr><td>emq_message</td><td>3</td></tr>
+                    
+                    <tr><td>emq_notify</td><td>3</td></tr>
+                    
+                    <tr><td>qmqd_reqack</td><td>3</td></tr>
+                    
+                    <tr><td>quec-cloud-log</td><td>3</td></tr>
+                    
+                    <tr><td>quec-cluster-websocket-message</td><td>3</td></tr>
+                    
+                    <tr><td>quec-data-storage-ck.DLT</td><td>3</td></tr>
+                    
+                    <tr><td>quec-websocket-message-push</td><td>3</td></tr>
+                    
+                    <tr><td>springCloudBus</td><td>1</td></tr>
+                    
+                    <tr><td>topic-1</td><td>3</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>积压 TOP 20（消费组+Topic）</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>消费组</th><th>Topic</th><th>积压数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>quec-rule-engine</td><td>QUEC_META_EVENT_THINGMODEL</td><td>190</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>QUEC_WEBSOCKET_CLOSE</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>quec-cluster-websocket-message</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_LOCATION</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_MODEL</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_BINDING</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_GROUP_AUTH</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_CEP_AMQP</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_DEVICE</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_ENDUSER</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_PRODUCT</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_SOLUTION</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_THINGMODEL</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_OTA_UPGRADE_NOTICE</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_EVENT</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_ONLINE</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_RAW</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_STATUS</td><td>0</td></tr>
+                    
+                    <tr><td>amqp-group-2</td><td>QUEC_SUBSCR_EVENT</td><td>0</td></tr>
+                    
+                    <tr><td>anonymous.16ebed59-8762-42e4-bb5f-71493717e4e3</td><td>springCloudBus</td><td>0</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>无消费组消费的 Topic</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>分区数</th><th>总消息数</th><th>每秒生产速率</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>QUEC_META_EVENT_PROJECT</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_AUDIT_APPLY</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_FAIL_EVENT</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC</td><td>3</td><td>2</td><td>0.00</td></tr>
+                    
+                    <tr><td>topic-1</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_I8N_RESOURCE</td><td>3</td><td>2</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_BLOOM_PK</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                    <tr><td>quec-data-storage-ck.DLT</td><td>3</td><td>0</td><td>0.00</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>无关联 Topic 的消费组</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>消费组</th><th>消费者数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>quec-cep-rule-engine-1760956296106</td><td>1</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>分区积压 TOP 20</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>消费组</th><th>Topic</th><th>分区</th><th>积压数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>quec-rule-engine</td><td>QUEC_META_EVENT_THINGMODEL</td><td>2</td><td>107</td></tr>
+                    
+                    <tr><td>quec-rule-engine</td><td>QUEC_META_EVENT_THINGMODEL</td><td>0</td><td>72</td></tr>
+                    
+                    <tr><td>quec-rule-engine</td><td>QUEC_META_EVENT_THINGMODEL</td><td>1</td><td>11</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>QUEC_WEBSOCKET_CLOSE</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>quec-cluster-websocket-message</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>QUEC_WEBSOCKET_CLOSE</td><td>1</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>quec-cluster-websocket-message</td><td>1</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>QUEC_WEBSOCKET_CLOSE</td><td>2</td><td>0</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>quec-cluster-websocket-message</td><td>2</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_LOCATION</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_MODEL</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_BINDING</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_GROUP_AUTH</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_CEP_AMQP</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_DEVICE</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_ENDUSER</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_PRODUCT</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_SOLUTION</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_THINGMODEL</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_OTA_UPGRADE_NOTICE</td><td>0</td><td>0</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>Topic生产速率 TOP 20</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>每秒生产消息数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>AEP_MQ_MSG_UP</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ACTION</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ROUTER</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_SOURCE</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_TIMER</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_BLOOM_PK</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_LIFECYCLE</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_LOCATION</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_MODEL</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_MODEL_RESERVED</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_OTA_UPGRADE_TRAFFIC</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_BIND_DEVICE_BELONG_IDC</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_BINDING</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_BINDING_INNER</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_DEVICE_GROUP_AUTH</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_GROUP_DEVICE</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_EVENT_THIRDPARTY_TMP_CONFIG_PUSH</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_ABILITY</td><td>0.00</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC_CA</td><td>0.00</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>消费组消费速率 TOP 20</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>消费组</th><th>Topic</th><th>每秒消费消息数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>10.244.101.45</td><td>QUEC_WEBSOCKET_CLOSE</td><td>0.00</td></tr>
+                    
+                    <tr><td>10.244.101.45</td><td>quec-cluster-websocket-message</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_LOCATION</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_DEVICE_MODEL</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_BINDING</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_EVENT_DEVICE_GROUP_AUTH</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_CEP_AMQP</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_DEVICE</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_ENDUSER</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_PRODUCT</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_SOLUTION</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_META_EVENT_THINGMODEL</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>QUEC_OTA_UPGRADE_NOTICE</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_EVENT</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_ONLINE</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_RAW</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp</td><td>SOUTH_DEVICE_STATUS</td><td>0.00</td></tr>
+                    
+                    <tr><td>amqp-group-2</td><td>QUEC_SUBSCR_EVENT</td><td>0.00</td></tr>
+                    
+                    <tr><td>anonymous.16ebed59-8762-42e4-bb5f-71493717e4e3</td><td>springCloudBus</td><td>0.00</td></tr>
+                    
+                    <tr><td>anonymous.bfe7a60b-325e-4084-9496-2d04fb9dd2cc</td><td>springCloudBus</td><td>0.00</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>Topic消费能力检测（消费速率 - 生产速率×消费组数）</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>生产速率/s</th><th>消费速率/s</th><th>消费组数</th><th>差值(消费-生产×组数)</th><th>状态</th></tr></thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>AEP_MQ_MSG_UP</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_EVENT_ACTION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_EVENT_ROUTER</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_EVENT_SOURCE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_EVENT_TIMER</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_RULE_BLOOM_PK</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_CEP_RULE_LIFECYCLE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_DEVICE_LOCATION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>4</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_DEVICE_MODEL</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>4</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_DEVICE_MODEL_RESERVED</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_DEVICE_OTA_UPGRADE_TRAFFIC</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_BIND_DEVICE_BELONG_IDC</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_DEVICE_BINDING</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>3</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_DEVICE_BINDING_INNER</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_DEVICE_GROUP_AUTH</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_GROUP_DEVICE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_EVENT_THIRDPARTY_TMP_CONFIG_PUSH</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_ABILITY</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_CA</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_EMAIL</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_ENGINE_RULE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_I18N_RESOURCE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_LOGIN</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_MIGRATE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PRE_DEVICE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PRODUCT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PRODUCT_AUTOMATION_CONFIG</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PRODUCT_CONFIGURATION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PRODUCT_DATA_AGGREGATE_CONFIG</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_PROJECT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_ROLE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_SYS_MSG</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_USER</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_GLOBAL_SYNC_USER_DATA_PERMISSION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_I8N_RESOURCE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_LWM2M_MESSAGE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_LWM2M_ONLINE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_LWM2M_REQACK</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_AUDIT_APPLY</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_AUDIT_RESULT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>3</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_CEP_AMQP</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_DEVICE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>7</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_ENDUSER</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_FAMILY_AUTH</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_PRODUCT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>7</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_PRODUCT_CONFIG</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_PROJECT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_SOLUTION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_SUBDEVICE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_META_EVENT_THINGMODEL</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>5</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_MODEL_TRANSFORM_EXCEPTION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_MSGSUB_COUNT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_OTA_UPGRADE_LOG_INSERT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_OTA_UPGRADE_NOTICE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_SUBSCR_EVENT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_USER_EVENT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>QUEC_WEBSOCKET_CLOSE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_EVENT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_FAIL_EVENT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_LOCATION</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_MODEL</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_ONLINE</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>4</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_OTA</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_RAW</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>3</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_DEVICE_STATUS</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>3</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>SOUTH_INFORMATION_PASSAGEWAY</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>emq_message</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>emq_notify</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>qmqd_reqack</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>quec-cloud-log</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>quec-cluster-websocket-message</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>quec-data-storage-ck.DLT</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>quec-websocket-message-push</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>springCloudBus</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>5</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>topic-1</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0.00</td>
+                        <td>正常</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+        <p style="color: #6c757d; font-size: 12px; margin-top: 10px;">注：差值为负表示消费能力不足，需要关注</p>
+    </div>
+
+    <div class="details-section">
+        <h2>ISR不足分区检测</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>分区</th><th>副本数</th><th>ISR数</th><th>缺失ISR数</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td colspan="5" style="text-align: center; color: #28a745;">所有分区ISR正常</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>Topic消息统计 TOP 20</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Topic</th><th>消息总数</th><th>当前偏移量</th><th>最早偏移量</th></tr></thead>
+                <tbody>
+                    
+                    <tr><td>QUEC_MSGSUB_COUNT</td><td>51</td><td>178220</td><td>178169</td></tr>
+                    
+                    <tr><td>quec-websocket-message-push</td><td>37</td><td>4195</td><td>4158</td></tr>
+                    
+                    <tr><td>quec-cluster-websocket-message</td><td>29</td><td>2757</td><td>2728</td></tr>
+                    
+                    <tr><td>QUEC_DEVICE_MODEL</td><td>21</td><td>22020652</td><td>22020631</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_MODEL</td><td>21</td><td>22829604</td><td>22829583</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_SOURCE</td><td>19</td><td>29860623</td><td>29860604</td></tr>
+                    
+                    <tr><td>quec-cloud-log</td><td>19</td><td>8923</td><td>8904</td></tr>
+                    
+                    <tr><td>emq_notify</td><td>16</td><td>11279062</td><td>11279046</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ROUTER</td><td>15</td><td>29860637</td><td>29860622</td></tr>
+                    
+                    <tr><td>emq_message</td><td>13</td><td>37875585</td><td>37875572</td></tr>
+                    
+                    <tr><td>SOUTH_DEVICE_ONLINE</td><td>10</td><td>7333652</td><td>7333642</td></tr>
+                    
+                    <tr><td>qmqd_reqack</td><td>6</td><td>3791814</td><td>3791808</td></tr>
+                    
+                    <tr><td>QUEC_GLOBAL_SYNC</td><td>2</td><td>621</td><td>619</td></tr>
+                    
+                    <tr><td>QUEC_I8N_RESOURCE</td><td>2</td><td>528</td><td>526</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_DEVICE</td><td>2</td><td>4374576</td><td>4374574</td></tr>
+                    
+                    <tr><td>QUEC_META_EVENT_THINGMODEL</td><td>1</td><td>204</td><td>203</td></tr>
+                    
+                    <tr><td>AEP_MQ_MSG_UP</td><td>0</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_ACTION</td><td>0</td><td>1560</td><td>1560</td></tr>
+                    
+                    <tr><td>QUEC_CEP_EVENT_TIMER</td><td>0</td><td>0</td><td>0</td></tr>
+                    
+                    <tr><td>QUEC_CEP_RULE_BLOOM_PK</td><td>0</td><td>7</td><td>7</td></tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+
+    
+    <div class="section-title">RabbitMQ 集群 </div>
+    <div class="summary-section">
+        <div class="summary-card"><div class="number">6368</div><div class="label">Ready messages 待投递</div></div>
+        <div class="summary-card"><div class="number">0.00</div><div class="label">Outgoing messages/s</div></div>
+        <div class="summary-card"><div class="number">-6363</div><div class="label">Publishers</div></div>
+        <div class="summary-card"><div class="number">24</div><div class="label">Connections</div></div>
+        <div class="summary-card"><div class="number">162</div><div class="label">Queues</div></div>
+        <div class="summary-card"><div class="number">0</div><div class="label">Unacknowledged messages</div></div>
+        <div class="summary-card"><div class="number">0.00</div><div class="label">Incoming messages/s</div></div>
+        <div class="summary-card"><div class="number">5011</div><div class="label">Consumers</div></div>
+        <div class="summary-card"><div class="number">26</div><div class="label">Channels</div></div>
+        <div class="summary-card"><div class="number">1</div><div class="label">Nodes</div></div>
+    </div>
+
+    <div class="details-section">
+        <h2>节点资源与队列分布（NODES / QUEUED MESSAGES）</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>节点</th><th>运行时间(s)</th><th>RabbitMQ</th><th>Erlang</th>
+                    <th>内存剩余(B)</th><th>磁盘可用(B)</th>
+                    <th>Ready</th><th>Unacked</th><th>Published/s</th>
+                </tr></thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>rabbit@rabbitmq-test</td>
+                        <td>17687286</td>
+                        <td>3.10.8</td>
+                        <td>24.2.2</td>
+                        <td>4787738460</td>
+                        <td>50099138560</td>
+                        <td>6368</td>
+                        <td>0</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <div class="summary-card"><div class="number">6368</div><div class="label">总积压消息</div></div>
+        <div class="summary-card"><div class="number">6368</div><div class="label">待投递消息</div></div>
+        <div class="summary-card"><div class="number">0</div><div class="label">未确认消息</div></div>
+        <div class="summary-card"><div class="number">3</div><div class="label">有积压队列数</div></div>
+        <div class="summary-card warning"><div class="number">1</div><div class="label">警告队列(>1000)</div></div>
+        <div class="summary-card"><div class="number">0</div><div class="label">严重队列(>10000)</div></div>
+    </div>
+
+    <div class="details-section">
+        <h2>集群资源指标</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>指标</th><th>当前值</th><th>阈值/限制</th><th>使用率</th>
+                </tr></thead>
+                <tbody>
+                    <tr>
+                        <td>内存使用 (Resident)</td>
+                        <td>0.76 GB</td>
+                        <td>5.22 GB</td>
+                        <td>
+                            14.6%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>磁盘可用空间</td>
+                        <td>0.00 GB</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>Erlang进程数</td>
+                        <td>1067</td>
+                        <td>1048576</td>
+                        <td>
+                            0.1%
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>调度器运行队列</td>
+                        <td>
+                            1
+                        </td>
+                        <td>&lt; 10</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>消息统计与消费者指标</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>指标</th><th>当前值</th><th>单位</th>
+                </tr></thead>
+                <tbody>
+                    <tr>
+                        <td>队列中Ready消息</td>
+                        <td>6368</td>
+                        <td>条</td>
+                    </tr>
+                    <tr>
+                        <td>队列中Unacked消息</td>
+                        <td>0</td>
+                        <td>条</td>
+                    </tr>
+                    <tr>
+                        <td>队列消息总字节数</td>
+                        <td>19.15 MB</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>消费者容量总计</td>
+                        <td>15</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>消费者平均利用率</td>
+                        <td>0.09</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>集群消息流</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>路由到队列 / s</th><th>发布确认 / s</th><th>投递消费 / s</th>
+                    <th>无法路由丢弃 / s</th><th>无法路由退回 / s</th><th>重投 / s</th>
+                    <th>近1h平均消息大小（字节）</th>
+                </tr></thead>
+                <tbody><tr>
+                    <td>0.0000</td>
+                    <td>0.0000</td>
+                    <td>0.0000</td>
+                    <td>0.0000</td>
+                    <td>0.0000</td>
+                    <td>0.0000</td>
+                    <td>0.00</td>
+                </tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>队列消息积压TOP 20</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>VHost</th><th>队列名称</th><th>待投递</th><th>未确认</th><th>总积压</th></tr></thead>
+                <tbody>
+                    
+                    <tr style="background-color: #fff3cd;">
+                        <td>general-tianpower</td><td>report.ck.history.prop.queue</td>
+                        <td>6148</td><td>0</td>
+                        <td style="font-weight: bold; color: #ffc107;">6148</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>data.collect.config.queue</td>
+                        <td>216</td><td>0</td>
+                        <td>216</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>BATCH_TASK_QUEUE</td>
+                        <td>4</td><td>0</td>
+                        <td>4</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>APP_NOTICE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>APP_NOTICE_TASK_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>CONSUMER_DEVICE_ACK_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_BIND_SN_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_DATA_UP_UNIQUE_RECORD_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_DIMENSION_CHANGE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_FEE_DEL_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_FEE_DISTRIBUTE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_FEE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_GROUP_IMPORT_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEVICE_IMPORT_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEV_DEVICE_ADD_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEV_DEVICE_SN_UPDATE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEV_DEVICE_TRACK_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DEV_PRODUCT_UNAUTHORIZED_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DR_INDUSTRY_SCENE_SUBSCRIBE_DELETE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>general-tianpower</td><td>DR_PRODUCT_SUBSCRIBE_DELETE_QUEUE</td>
+                        <td>0</td><td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>告警状态检测</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>告警类型</th><th>状态</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>文件描述符告警</td>
+                        <td style="color: #28a745;">
+                            正常
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>磁盘空间告警</td>
+                        <td style="color: #28a745;">
+                            正常
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>内存使用告警</td>
+                        <td style="color: #28a745;">
+                            正常
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>进程资源使用</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>打开文件描述符</th><th>文件描述符上限</th><th>打开TCP连接</th><th>TCP连接上限</th>
+                    <th>Erlang进程数</th><th>Erlang进程上限</th>
+                </tr></thead>
+                <tbody><tr>
+                    <td>142</td>
+                    <td>65536</td>
+                    <td>24</td>
+                    <td>58893</td>
+                    <td>1067</td>
+                    <td>1048576</td>
+                </tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>连接通道统计（累计）</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th>连接打开数</th><th>连接关闭数</th><th>通道打开数</th><th>通道关闭数</th>
+                    <th>队列声明数</th><th>队列创建数</th><th>队列删除数</th>
+                </tr></thead>
+                <tbody><tr>
+                    <td>1547</td>
+                    <td>1613</td>
+                    <td>6787</td>
+                    <td>6761</td>
+                    <td>7510</td>
+                    <td>717</td>
+                    <td>722</td>
+                </tr></tbody>
+            </table>
+        </div>
+    </div>
+    
+
+    <div class="footer">
+        <p>本报告由 mq_inspection 自动生成 | Prometheus |
+        Kafka Exporter
+         + 
+        RabbitMQ Prometheus Plugin
+        | 2026-05-13 12:00</p>
+    </div>
+</div>
+</body>
+</html>
+        

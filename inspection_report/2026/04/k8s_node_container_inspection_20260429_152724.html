@@ -1,0 +1,2449 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>K8S+Node 综合巡检报告 - 2026-04-29 15:27</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 36px; margin-bottom: 10px; }
+        .header .subtitle { opacity: 0.9; font-size: 16px; }
+
+        .summary-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        .summary-card:hover { transform: translateY(-5px); }
+        .summary-card .number { font-size: 42px; font-weight: bold; margin-bottom: 8px; }
+        .summary-card .label { color: #6c757d; font-size: 14px; }
+        .summary-card.total .number { color: #667eea; }
+        .summary-card.normal .number { color: #28a745; }
+        .summary-card.warning .number { color: #ffc107; }
+        .summary-card.critical .number { color: #dc3545; }
+
+        .alerts-section {
+            padding: 30px;
+            background: #fff5f5;
+            border-left: 5px solid #dc3545;
+        }
+        .alerts-section h2 { color: #dc3545; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .alert-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .alert-table th { background: #dc3545; color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .alert-table td { padding: 12px 15px; border-bottom: 1px solid #e9ecef; }
+        .alert-table tr:hover { background: #f8f9fa; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        .badge-warning { background: #ffc107; color: #212529; }
+        .badge-critical { background: #dc3545; color: white; }
+
+        .details-section { padding: 30px; }
+        .details-section h2 { margin-bottom: 20px; color: #2c3e50; border-bottom: 3px solid #667eea; padding-bottom: 10px; margin-top: 30px; }
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th, .data-table td {
+            padding: 12px;
+            border: 1px solid #e9ecef;
+            text-align: left;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .data-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        .data-table tr:nth-child(even) { background: #f8f9fa; }
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-normal { background: #28a745; }
+        .status-warning { background: #ffc107; }
+        .status-critical { background: #dc3545; }
+        .footer {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 13px;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔍 K8S + Node 综合巡检报告</h1>
+        <div class="subtitle">生成时间: 2026-04-29 15:27 | 巡检周期: 最近24小时 | 数据源: Prometheus</div>
+    </div>
+
+    <!-- 汇总卡片 -->
+    <div class="summary-section">
+        <div class="summary-card total"><div class="number">33</div><div class="label">巡检项目</div></div>
+        <div class="summary-card normal"><div class="number">32</div><div class="label">正常</div></div>
+        <div class="summary-card warning"><div class="number">1</div><div class="label">警告</div></div>
+        <div class="summary-card critical"><div class="number">0</div><div class="label">严重</div></div>
+    </div>
+
+    <!-- 告警区域 -->
+    
+    <div class="alerts-section">
+        <h2>⚠️ 告警详情 (共 1 条)</h2>
+        <table class="alert-table">
+            <thead><tr><th>检查项</th><th>节点/实例</th><th>当前值</th><th>状态</th>?</thead>
+            <tbody>
+                
+                <tr>
+                    <td>内存使用率</td>
+                    <td>192.168.13.32:9100</td>
+                    <td><strong>84.54%</strong></td>
+                    <td><span class="badge badge-warning">警告</span></td>
+                </tr>
+                
+            </tbody>
+        </table>
+    </div>
+    
+
+    <!-- K8S 节点资源表格 -->
+    <div class="details-section">
+        <h2>📊 K8S 节点资源详情</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>节点名称</th>
+                        <th>内存总量(GB)</th><th>内存使用量(GB)</th><th>内存使用率(%)</th>
+                        <th>CPU总量(核)</th><th>CPU使用量(核)</th><th>CPU使用率(%)</th>
+                        <th>磁盘总量(GB)</th><th>磁盘使用量(GB)</th><th>磁盘使用率(%)</th>
+                        <th>Pod数量</th><th>Pod上限</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>k8s-master</td>
+                        <td>7.37</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>4.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node1-dev</td>
+                        <td>30.96</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>21</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node2-dev</td>
+                        <td>30.96</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>18</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node3-dev</td>
+                        <td>30.96</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>22</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node4-dev</td>
+                        <td>31.25</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>23</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node5-dev</td>
+                        <td>31.25</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>8.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>40</td>
+                        <td>110</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>N/A</td>
+                        <td>0.00</td>
+                        <td>100.38</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>1.52</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>911.92</td>
+                        <td>143.63</td>
+                        <td>15.75 <span class="status-dot status-normal"></span></td>
+                        <td>0</td>
+                        <td>1</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- K8S 节点网络带宽 -->
+    <div class="details-section">
+        <h2>🌐 K8S 节点网络带宽</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>节点名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>k8s-master</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node1-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node2-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node3-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node4-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node5-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>N/A</td>
+                        <td>71.92</td>
+                        <td>74.66</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- K8S 容器资源统计（按名称空间分组） -->
+    <div class="details-section">
+        <h2>📊 K8S 容器资源统计</h2>
+        
+            
+            <h3 style="margin-top: 20px;">名称空间: general</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>dataview-consumer-api</td>
+                            <td>0.26 <span class="status-dot status-warning"></span></td>
+                            <td>0.003</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>75.82 <span class="status-dot status-warning"></span></td>
+                            <td>0.76</td>
+                            <td>0.50</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-consumer-public</td>
+                            <td>0.23 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>66.70 <span class="status-dot status-normal"></span></td>
+                            <td>0.67</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-data-router</td>
+                            <td>0.23 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>59.38 <span class="status-dot status-normal"></span></td>
+                            <td>0.59</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-device-public</td>
+                            <td>0.58 <span class="status-dot status-normal"></span></td>
+                            <td>0.012</td>
+                            <td>0.050</td>
+                            <td>2.000</td>
+                            <td>42.66 <span class="status-dot status-normal"></span></td>
+                            <td>0.85</td>
+                            <td>0.39</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-ems</td>
+                            <td>0.26 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>60.60 <span class="status-dot status-normal"></span></td>
+                            <td>0.61</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-eureka</td>
+                            <td>0.80 <span class="status-dot status-normal"></span></td>
+                            <td>0.008</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>52.03 <span class="status-dot status-normal"></span></td>
+                            <td>0.52</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-gateway</td>
+                            <td>0.28 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>61.04 <span class="status-dot status-normal"></span></td>
+                            <td>0.61</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-job</td>
+                            <td>0.27 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>56.14 <span class="status-dot status-normal"></span></td>
+                            <td>0.56</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-notice</td>
+                            <td>0.27 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>71.33 <span class="status-dot status-normal"></span></td>
+                            <td>0.71</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-ota</td>
+                            <td>0.18 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>61.24 <span class="status-dot status-normal"></span></td>
+                            <td>0.61</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-product</td>
+                            <td>0.21 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>65.27 <span class="status-dot status-normal"></span></td>
+                            <td>0.65</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-report-public</td>
+                            <td>0.39 <span class="status-dot status-normal"></span></td>
+                            <td>0.004</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>43.90 <span class="status-dot status-normal"></span></td>
+                            <td>0.88</td>
+                            <td>0.39</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-rule</td>
+                            <td>0.24 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>59.64 <span class="status-dot status-normal"></span></td>
+                            <td>0.60</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-system</td>
+                            <td>0.06 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.050</td>
+                            <td>4.000</td>
+                            <td>34.35 <span class="status-dot status-normal"></span></td>
+                            <td>1.37</td>
+                            <td>0.39</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-sysuser</td>
+                            <td>0.24 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>41.35 <span class="status-dot status-normal"></span></td>
+                            <td>0.83</td>
+                            <td>0.39</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-upower</td>
+                            <td>0.15 <span class="status-dot status-normal"></span></td>
+                            <td>0.001</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>52.00 <span class="status-dot status-normal"></span></td>
+                            <td>0.52</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-web</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.010</td>
+                            <td>0.500</td>
+                            <td>43.02 <span class="status-dot status-normal"></span></td>
+                            <td>0.22</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-workorder</td>
+                            <td>0.24 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>64.14 <span class="status-dot status-normal"></span></td>
+                            <td>0.64</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>hmi-web</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.010</td>
+                            <td>0.500</td>
+                            <td>46.98 <span class="status-dot status-normal"></span></td>
+                            <td>0.23</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>sdt-web</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.010</td>
+                            <td>0.500</td>
+                            <td>43.09 <span class="status-dot status-normal"></span></td>
+                            <td>0.22</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>stt-web</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.010</td>
+                            <td>0.500</td>
+                            <td>43.07 <span class="status-dot status-normal"></span></td>
+                            <td>0.22</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>dataview-configuration-tool</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.020</td>
+                            <td>0.500</td>
+                            <td>43.03 <span class="status-dot status-normal"></span></td>
+                            <td>0.22</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>dataview-screen-tool</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.020</td>
+                            <td>0.500</td>
+                            <td>42.92 <span class="status-dot status-normal"></span></td>
+                            <td>0.21</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-siddhi</td>
+                            <td>0.50 <span class="status-dot status-normal"></span></td>
+                            <td>0.005</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>50.54 <span class="status-dot status-normal"></span></td>
+                            <td>0.51</td>
+                            <td>0.39</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>viewer-h5</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.010</td>
+                            <td>0.500</td>
+                            <td>42.89 <span class="status-dot status-normal"></span></td>
+                            <td>0.21</td>
+                            <td>0.06</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>ws-mqtt-auth</td>
+                            <td>0.13 <span class="status-dot status-normal"></span></td>
+                            <td>0.001</td>
+                            <td>0.050</td>
+                            <td>1.000</td>
+                            <td>52.87 <span class="status-dot status-normal"></span></td>
+                            <td>0.53</td>
+                            <td>0.25</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: flink-dev</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>flink-main-container</td>
+                            <td>0.81 <span class="status-dot status-normal"></span></td>
+                            <td>0.057</td>
+                            <td>3.800</td>
+                            <td>7.000</td>
+                            <td>53.77 <span class="status-dot status-normal"></span></td>
+                            <td>5.24</td>
+                            <td>9.75</td>
+                            <td>9.75</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: elastic-system</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>fluentd</td>
+                            <td>0.45 <span class="status-dot status-normal"></span></td>
+                            <td>0.022</td>
+                            <td>0.005</td>
+                            <td>5.000</td>
+                            <td>17.67 <span class="status-dot status-normal"></span></td>
+                            <td>1.77</td>
+                            <td>0.49</td>
+                            <td>10.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>manager</td>
+                            <td>0.23 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>9.75 <span class="status-dot status-normal"></span></td>
+                            <td>0.10</td>
+                            <td>0.15</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: traces-monitoring</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>jaeger</td>
+                            <td>2.34 <span class="status-dot status-warning"></span></td>
+                            <td>0.012</td>
+                            <td>0.100</td>
+                            <td>0.500</td>
+                            <td>82.04 <span class="status-dot status-warning"></span></td>
+                            <td>0.41</td>
+                            <td>0.12</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: monitoring</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>nightingale</td>
+                            <td>0.32 <span class="status-dot status-normal"></span></td>
+                            <td>0.006</td>
+                            <td>0.500</td>
+                            <td>2.000</td>
+                            <td>1.86 <span class="status-dot status-normal"></span></td>
+                            <td>0.07</td>
+                            <td>0.50</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: default</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>容器名称</th>
+                            <th>CPU使用率(%)</th><th>CPU使用量(核)</th><th>CPU请求(核)</th><th>CPU限制(核)</th>
+                            <th>内存使用率(%)</th><th>内存使用量(GB)</th><th>内存请求(GB)</th><th>内存限制(GB)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>quec-amqp-queue-event</td>
+                            <td>0.17 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>54.58 <span class="status-dot status-normal"></span></td>
+                            <td>0.55</td>
+                            <td>0.49</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-router</td>
+                            <td>0.47 <span class="status-dot status-normal"></span></td>
+                            <td>0.019</td>
+                            <td>4.000</td>
+                            <td>4.000</td>
+                            <td>51.80 <span class="status-dot status-normal"></span></td>
+                            <td>2.07</td>
+                            <td>4.00</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-dataview-configuration-tool</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.100</td>
+                            <td>0.500</td>
+                            <td>42.98 <span class="status-dot status-normal"></span></td>
+                            <td>0.21</td>
+                            <td>0.10</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-device-mgr</td>
+                            <td>0.20 <span class="status-dot status-normal"></span></td>
+                            <td>0.012</td>
+                            <td>0.600</td>
+                            <td>6.000</td>
+                            <td>32.62 <span class="status-dot status-normal"></span></td>
+                            <td>3.91</td>
+                            <td>1.50</td>
+                            <td>12.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-device-shadow</td>
+                            <td>0.51 <span class="status-dot status-normal"></span></td>
+                            <td>0.061</td>
+                            <td>1.500</td>
+                            <td>12.000</td>
+                            <td>61.57 <span class="status-dot status-normal"></span></td>
+                            <td>7.39</td>
+                            <td>12.00</td>
+                            <td>12.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-model-mgr</td>
+                            <td>0.56 <span class="status-dot status-normal"></span></td>
+                            <td>0.011</td>
+                            <td>0.200</td>
+                            <td>2.000</td>
+                            <td>41.29 <span class="status-dot status-normal"></span></td>
+                            <td>1.65</td>
+                            <td>1.00</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-model-transform</td>
+                            <td>0.27 <span class="status-dot status-normal"></span></td>
+                            <td>0.016</td>
+                            <td>1.500</td>
+                            <td>6.000</td>
+                            <td>53.47 <span class="status-dot status-normal"></span></td>
+                            <td>6.42</td>
+                            <td>6.00</td>
+                            <td>12.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ota</td>
+                            <td>1.30 <span class="status-dot status-normal"></span></td>
+                            <td>0.013</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>41.04 <span class="status-dot status-normal"></span></td>
+                            <td>0.82</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ota-task</td>
+                            <td>0.07 <span class="status-dot status-normal"></span></td>
+                            <td>0.001</td>
+                            <td>0.100</td>
+                            <td>2.000</td>
+                            <td>38.26 <span class="status-dot status-normal"></span></td>
+                            <td>0.77</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-saas-mgr</td>
+                            <td>0.45 <span class="status-dot status-normal"></span></td>
+                            <td>0.009</td>
+                            <td>0.100</td>
+                            <td>2.000</td>
+                            <td>41.06 <span class="status-dot status-normal"></span></td>
+                            <td>1.64</td>
+                            <td>1.00</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web</td>
+                            <td>0.01 <span class="status-dot status-normal"></span></td>
+                            <td>0.000</td>
+                            <td>0.100</td>
+                            <td>0.500</td>
+                            <td>42.97 <span class="status-dot status-normal"></span></td>
+                            <td>0.21</td>
+                            <td>0.10</td>
+                            <td>0.50</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>eureka</td>
+                            <td>1.13 <span class="status-dot status-normal"></span></td>
+                            <td>0.011</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>26.89 <span class="status-dot status-normal"></span></td>
+                            <td>0.27</td>
+                            <td>0.49</td>
+                            <td>1.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-amqp-auth</td>
+                            <td>0.13 <span class="status-dot status-normal"></span></td>
+                            <td>0.001</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>29.40 <span class="status-dot status-normal"></span></td>
+                            <td>0.59</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-auth-server</td>
+                            <td>0.52 <span class="status-dot status-normal"></span></td>
+                            <td>0.010</td>
+                            <td>0.100</td>
+                            <td>2.000</td>
+                            <td>29.80 <span class="status-dot status-normal"></span></td>
+                            <td>1.19</td>
+                            <td>0.49</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ca-api</td>
+                            <td>0.36 <span class="status-dot status-normal"></span></td>
+                            <td>0.004</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>35.07 <span class="status-dot status-normal"></span></td>
+                            <td>0.70</td>
+                            <td>0.50</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-siddhi</td>
+                            <td>0.75 <span class="status-dot status-normal"></span></td>
+                            <td>0.007</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>35.64 <span class="status-dot status-normal"></span></td>
+                            <td>0.71</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-storage</td>
+                            <td>0.54 <span class="status-dot status-normal"></span></td>
+                            <td>0.005</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>33.45 <span class="status-dot status-normal"></span></td>
+                            <td>0.67</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-rule-engine</td>
+                            <td>2.24 <span class="status-dot status-warning"></span></td>
+                            <td>0.022</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>78.17 <span class="status-dot status-warning"></span></td>
+                            <td>1.56</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-api</td>
+                            <td>0.62 <span class="status-dot status-normal"></span></td>
+                            <td>0.006</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>40.60 <span class="status-dot status-normal"></span></td>
+                            <td>0.81</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-collect-ck</td>
+                            <td>0.82 <span class="status-dot status-normal"></span></td>
+                            <td>0.066</td>
+                            <td>8.000</td>
+                            <td>8.000</td>
+                            <td>60.06 <span class="status-dot status-normal"></span></td>
+                            <td>9.61</td>
+                            <td>16.00</td>
+                            <td>16.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-gateway</td>
+                            <td>1.20 <span class="status-dot status-normal"></span></td>
+                            <td>0.048</td>
+                            <td>0.200</td>
+                            <td>4.000</td>
+                            <td>68.11 <span class="status-dot status-normal"></span></td>
+                            <td>5.45</td>
+                            <td>1.00</td>
+                            <td>8.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-i18n-service</td>
+                            <td>0.59 <span class="status-dot status-normal"></span></td>
+                            <td>0.006</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>38.70 <span class="status-dot status-normal"></span></td>
+                            <td>0.77</td>
+                            <td>0.10</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-log-store</td>
+                            <td>0.32 <span class="status-dot status-normal"></span></td>
+                            <td>0.003</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>33.16 <span class="status-dot status-normal"></span></td>
+                            <td>0.66</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-conn</td>
+                            <td>0.67 <span class="status-dot status-normal"></span></td>
+                            <td>0.027</td>
+                            <td>0.500</td>
+                            <td>4.000</td>
+                            <td>8.03 <span class="status-dot status-normal"></span></td>
+                            <td>0.32</td>
+                            <td>0.50</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-core</td>
+                            <td>1.60 <span class="status-dot status-normal"></span></td>
+                            <td>0.064</td>
+                            <td>0.500</td>
+                            <td>4.000</td>
+                            <td>16.68 <span class="status-dot status-normal"></span></td>
+                            <td>0.33</td>
+                            <td>0.50</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-db</td>
+                            <td>0.14 <span class="status-dot status-normal"></span></td>
+                            <td>0.006</td>
+                            <td>0.100</td>
+                            <td>4.000</td>
+                            <td>7.89 <span class="status-dot status-normal"></span></td>
+                            <td>0.32</td>
+                            <td>0.49</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-notice-server</td>
+                            <td>0.23 <span class="status-dot status-normal"></span></td>
+                            <td>0.005</td>
+                            <td>0.200</td>
+                            <td>2.000</td>
+                            <td>29.16 <span class="status-dot status-normal"></span></td>
+                            <td>1.17</td>
+                            <td>0.50</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-portal</td>
+                            <td>0.59 <span class="status-dot status-normal"></span></td>
+                            <td>0.006</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>42.04 <span class="status-dot status-normal"></span></td>
+                            <td>0.84</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-product-mgr</td>
+                            <td>1.37 <span class="status-dot status-normal"></span></td>
+                            <td>0.014</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>41.33 <span class="status-dot status-normal"></span></td>
+                            <td>0.83</td>
+                            <td>0.50</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-rule-api</td>
+                            <td>0.40 <span class="status-dot status-normal"></span></td>
+                            <td>0.008</td>
+                            <td>0.200</td>
+                            <td>2.000</td>
+                            <td>38.48 <span class="status-dot status-normal"></span></td>
+                            <td>1.54</td>
+                            <td>0.98</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-rule-data</td>
+                            <td>1.07 <span class="status-dot status-normal"></span></td>
+                            <td>0.021</td>
+                            <td>2.000</td>
+                            <td>2.000</td>
+                            <td>34.11 <span class="status-dot status-normal"></span></td>
+                            <td>1.36</td>
+                            <td>4.00</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-schedule-task</td>
+                            <td>0.23 <span class="status-dot status-normal"></span></td>
+                            <td>0.002</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>34.12 <span class="status-dot status-normal"></span></td>
+                            <td>0.68</td>
+                            <td>0.50</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-virtual-client</td>
+                            <td>1.17 <span class="status-dot status-normal"></span></td>
+                            <td>0.012</td>
+                            <td>0.100</td>
+                            <td>1.000</td>
+                            <td>48.77 <span class="status-dot status-normal"></span></td>
+                            <td>0.98</td>
+                            <td>0.49</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web-api</td>
+                            <td>0.15 <span class="status-dot status-normal"></span></td>
+                            <td>0.001</td>
+                            <td>0.300</td>
+                            <td>1.000</td>
+                            <td>34.42 <span class="status-dot status-normal"></span></td>
+                            <td>0.69</td>
+                            <td>0.50</td>
+                            <td>2.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web-websocket</td>
+                            <td>0.25 <span class="status-dot status-normal"></span></td>
+                            <td>0.005</td>
+                            <td>0.100</td>
+                            <td>2.000</td>
+                            <td>17.52 <span class="status-dot status-normal"></span></td>
+                            <td>0.70</td>
+                            <td>0.49</td>
+                            <td>4.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+        
+    </div>
+
+    <!-- K8S 容器网络带宽 -->
+    <div class="details-section">
+        <h2>🌐 K8S 容器网络带宽</h2>
+        
+            
+            <h3 style="margin-top: 20px;">名称空间: general</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>dataview-consumer-api</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-consumer-public</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-data-router</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-device-public</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-ems</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-eureka</td>
+                            <td>0.02</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-gateway</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-job</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-notice</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-ota</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-product</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-report-public</td>
+                            <td>0.02</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-rule</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-system</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-sysuser</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-upower</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-web</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>general-workorder</td>
+                            <td>0.01</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>hmi-web</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>sdt-web</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>stt-web</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>dataview-configuration-tool</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>dataview-screen-tool</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-siddhi</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>viewer-h5</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>ws-mqtt-auth</td>
+                            <td>0.00</td>
+                            <td>0.01</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: flink-dev</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>flink-main-container</td>
+                            <td>0.01</td>
+                            <td>0.07</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: elastic-system</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>fluentd</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>manager</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: traces-monitoring</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>jaeger</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: monitoring</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>nightingale</td>
+                            <td>0.15</td>
+                            <td>7.06</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+            <h3 style="margin-top: 20px;">名称空间: default</h3>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead><tr><th>容器名称</th><th>接收带宽 (Mbps)</th><th>发送带宽 (Mbps)</th></tr></thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>quec-amqp-queue-event</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-router</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-dataview-configuration-tool</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-device-mgr</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-device-shadow</td>
+                            <td>0.05</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-model-mgr</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-model-transform</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ota</td>
+                            <td>0.08</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ota-task</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-saas-mgr</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>eureka</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-amqp-auth</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-auth-server</td>
+                            <td>0.06</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-ca-api</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-siddhi</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-engine-storage</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-cep-rule-engine</td>
+                            <td>0.15</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-api</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-data-collect-ck</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-gateway</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-i18n-service</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-log-store</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-conn</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-core</td>
+                            <td>0.06</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-mqtt-db</td>
+                            <td>0.00</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-notice-server</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-portal</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-product-mgr</td>
+                            <td>0.10</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-rule-api</td>
+                            <td>0.02</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-rule-data</td>
+                            <td>0.17</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-schedule-task</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-virtual-client</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web-api</td>
+                            <td>0.01</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                        <tr>
+                            <td>quec-web-websocket</td>
+                            <td>0.03</td>
+                            <td>0.00</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+            
+        
+    </div>
+
+    <!-- Node 主机基础资源 -->
+    <div class="details-section">
+        <h2>🖥️ Node 主机基础资源</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>主机名</th><th>IP</th><th>启动天数</th>
+                        <th>CPU总核数</th><th>CPU使用率(%)</th>
+                        <th>内存总量(GB)</th><th>内存可用(GB)</th><th>内存使用率(%)</th>
+                        <th>磁盘使用率(%)</th>
+                     </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>k8s-node3-dev</td>
+                        <td>k8s-node3-dev</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>31.06</td>
+                        <td>7.28</td>
+                        <td>76.57 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node5-dev</td>
+                        <td>k8s-node5-dev</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>31.34</td>
+                        <td>8.89</td>
+                        <td>71.64 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node4-dev</td>
+                        <td>k8s-node4-dev</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>31.34</td>
+                        <td>9.90</td>
+                        <td>68.40 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node1-dev</td>
+                        <td>k8s-node1-dev</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>35.06</td>
+                        <td>14.96</td>
+                        <td>57.34 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node2-dev</td>
+                        <td>k8s-node2-dev</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>31.06</td>
+                        <td>9.98</td>
+                        <td>67.86 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-master</td>
+                        <td>k8s-master</td>
+                        <td>0.0</td>
+                        <td>0</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>7.47</td>
+                        <td>2.79</td>
+                        <td>62.64 <span class="status-dot status-normal"></span></td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>streampark-dev</td>
+                        <td>192.168.13.110:9100</td>
+                        <td>268.2</td>
+                        <td>4</td>
+                        <td>0.41 <span class="status-dot status-normal"></span></td>
+                        <td>7.47</td>
+                        <td>5.21</td>
+                        <td>30.28 <span class="status-dot status-normal"></span></td>
+                        <td>25.14 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mysql-test</td>
+                        <td>192.168.13.30:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>1.62 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>5.51</td>
+                        <td>29.36 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>redis-test</td>
+                        <td>192.168.13.31:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>0.33 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>1.69</td>
+                        <td>78.27 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>rabbitmq-test</td>
+                        <td>192.168.13.32:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>1.02 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>1.21</td>
+                        <td>84.54 <span class="status-dot status-warning"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-1</td>
+                        <td>192.168.13.33:9100</td>
+                        <td>173.7</td>
+                        <td>24</td>
+                        <td>0.13 <span class="status-dot status-normal"></span></td>
+                        <td>7.78</td>
+                        <td>4.45</td>
+                        <td>42.77 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-2</td>
+                        <td>192.168.13.34:9100</td>
+                        <td>174.0</td>
+                        <td>12</td>
+                        <td>0.23 <span class="status-dot status-normal"></span></td>
+                        <td>7.78</td>
+                        <td>4.64</td>
+                        <td>40.33 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-3</td>
+                        <td>192.168.13.35:9100</td>
+                        <td>174.0</td>
+                        <td>12</td>
+                        <td>0.18 <span class="status-dot status-normal"></span></td>
+                        <td>7.78</td>
+                        <td>4.50</td>
+                        <td>42.18 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-1</td>
+                        <td>192.168.13.36:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>4.12 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>5.59</td>
+                        <td>28.24 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-2</td>
+                        <td>192.168.13.37:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>3.95 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>5.59</td>
+                        <td>28.33 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-3</td>
+                        <td>192.168.13.38:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>3.78 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>5.60</td>
+                        <td>28.21 <span class="status-dot status-normal"></span></td>
+                        <td>13.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-1</td>
+                        <td>192.168.13.39:9100</td>
+                        <td>268.2</td>
+                        <td>4</td>
+                        <td>2.93 <span class="status-dot status-normal"></span></td>
+                        <td>15.67</td>
+                        <td>13.11</td>
+                        <td>16.35 <span class="status-dot status-normal"></span></td>
+                        <td>68.20 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-2</td>
+                        <td>192.168.13.40:9100</td>
+                        <td>268.2</td>
+                        <td>4</td>
+                        <td>1.72 <span class="status-dot status-normal"></span></td>
+                        <td>15.67</td>
+                        <td>14.19</td>
+                        <td>9.45 <span class="status-dot status-normal"></span></td>
+                        <td>64.83 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-3</td>
+                        <td>192.168.13.41:9100</td>
+                        <td>268.2</td>
+                        <td>4</td>
+                        <td>1.89 <span class="status-dot status-normal"></span></td>
+                        <td>15.67</td>
+                        <td>14.06</td>
+                        <td>10.28 <span class="status-dot status-normal"></span></td>
+                        <td>64.43 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-logs</td>
+                        <td>192.168.13.42:9100</td>
+                        <td>268.2</td>
+                        <td>2</td>
+                        <td>2.60 <span class="status-dot status-normal"></span></td>
+                        <td>7.80</td>
+                        <td>6.51</td>
+                        <td>16.53 <span class="status-dot status-normal"></span></td>
+                        <td>32.08 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>nginx-proxy</td>
+                        <td>192.168.13.43:9100</td>
+                        <td>145.2</td>
+                        <td>4</td>
+                        <td>0.20 <span class="status-dot status-normal"></span></td>
+                        <td>7.75</td>
+                        <td>2.07</td>
+                        <td>73.28 <span class="status-dot status-normal"></span></td>
+                        <td>20.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.225:9100</td>
+                        <td>192.168.13.225:9100</td>
+                        <td>244.0</td>
+                        <td>8</td>
+                        <td>6.93 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>25.16 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.45:9100</td>
+                        <td>192.168.13.45:9100</td>
+                        <td>229.9</td>
+                        <td>8</td>
+                        <td>7.13 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>70.56 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.46:9100</td>
+                        <td>192.168.13.46:9100</td>
+                        <td>230.2</td>
+                        <td>8</td>
+                        <td>12.22 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>20.48 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.91:9100</td>
+                        <td>192.168.13.91:9100</td>
+                        <td>268.2</td>
+                        <td>16</td>
+                        <td>6.20 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>25.16 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.92:9100</td>
+                        <td>192.168.13.92:9100</td>
+                        <td>268.2</td>
+                        <td>8</td>
+                        <td>9.03 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>25.16 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.93:9100</td>
+                        <td>192.168.13.93:9100</td>
+                        <td>268.2</td>
+                        <td>4</td>
+                        <td>18.68 <span class="status-dot status-normal"></span></td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.00 <span class="status-dot status-normal"></span></td>
+                        <td>25.16 <span class="status-dot status-normal"></span></td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Node 主机扩展指标 -->
+    <div class="details-section">
+        <h2>🌐 Node 主机扩展指标（网络/负载/进程/文件描述符/TCP）</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>主机名</th><th>IP</th>
+                        <th>接收带宽(Mbps)</th><th>发送带宽(Mbps)</th>
+                        <th>5分钟负载</th><th>运行进程</th><th>阻塞进程</th>
+                        <th>FD已分配</th><th>FD最大</th>
+                        <th>TCP连接数</th><th>TCP TIME_WAIT</th>
+                     </tr>
+                </thead>
+                <tbody>
+                    
+                    <tr>
+                        <td>k8s-node3-dev</td>
+                        <td>k8s-node3-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.56</td>
+                        <td>3</td>
+                        <td>0</td>
+                        <td>696576</td>
+                        <td>3355443</td>
+                        <td>16</td>
+                        <td>102</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node5-dev</td>
+                        <td>k8s-node5-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.57</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>85632</td>
+                        <td>3355443</td>
+                        <td>16</td>
+                        <td>196</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node4-dev</td>
+                        <td>k8s-node4-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>2.54</td>
+                        <td>3</td>
+                        <td>0</td>
+                        <td>669696</td>
+                        <td>3355443</td>
+                        <td>16</td>
+                        <td>83</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node1-dev</td>
+                        <td>k8s-node1-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.84</td>
+                        <td>2</td>
+                        <td>0</td>
+                        <td>698176</td>
+                        <td>3355443</td>
+                        <td>16</td>
+                        <td>111</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-node2-dev</td>
+                        <td>k8s-node2-dev</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.65</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>695136</td>
+                        <td>3355443</td>
+                        <td>16</td>
+                        <td>60</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>k8s-master</td>
+                        <td>k8s-master</td>
+                        <td>0.00</td>
+                        <td>0.00</td>
+                        <td>0.59</td>
+                        <td>2</td>
+                        <td>0</td>
+                        <td>692608</td>
+                        <td>3355443</td>
+                        <td>300</td>
+                        <td>125</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>streampark-dev</td>
+                        <td>192.168.13.110:9100</td>
+                        <td>0.15</td>
+                        <td>0.03</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1120</td>
+                        <td>9223372036854775808</td>
+                        <td>18</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mysql-test</td>
+                        <td>192.168.13.30:9100</td>
+                        <td>0.09</td>
+                        <td>0.26</td>
+                        <td>0.03</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1664</td>
+                        <td>1048576</td>
+                        <td>252</td>
+                        <td>2</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>redis-test</td>
+                        <td>192.168.13.31:9100</td>
+                        <td>0.02</td>
+                        <td>0.05</td>
+                        <td>0.01</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1376</td>
+                        <td>1048576</td>
+                        <td>305</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>rabbitmq-test</td>
+                        <td>192.168.13.32:9100</td>
+                        <td>0.00</td>
+                        <td>0.01</td>
+                        <td>0.02</td>
+                        <td>5</td>
+                        <td>0</td>
+                        <td>1248</td>
+                        <td>1048576</td>
+                        <td>28</td>
+                        <td>1</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-1</td>
+                        <td>192.168.13.33:9100</td>
+                        <td>0.05</td>
+                        <td>0.13</td>
+                        <td>0.02</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1744</td>
+                        <td>1048576</td>
+                        <td>165</td>
+                        <td>10</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-2</td>
+                        <td>192.168.13.34:9100</td>
+                        <td>0.04</td>
+                        <td>0.07</td>
+                        <td>0.01</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1280</td>
+                        <td>1048576</td>
+                        <td>121</td>
+                        <td>10</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>mongodb-test-3</td>
+                        <td>192.168.13.35:9100</td>
+                        <td>0.04</td>
+                        <td>0.06</td>
+                        <td>0.01</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1280</td>
+                        <td>1048576</td>
+                        <td>122</td>
+                        <td>5</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-1</td>
+                        <td>192.168.13.36:9100</td>
+                        <td>0.52</td>
+                        <td>0.53</td>
+                        <td>0.05</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>2528</td>
+                        <td>1048576</td>
+                        <td>220</td>
+                        <td>3</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-2</td>
+                        <td>192.168.13.37:9100</td>
+                        <td>0.49</td>
+                        <td>0.57</td>
+                        <td>0.03</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>2656</td>
+                        <td>1048576</td>
+                        <td>332</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>kafka-test-3</td>
+                        <td>192.168.13.38:9100</td>
+                        <td>0.47</td>
+                        <td>0.52</td>
+                        <td>0.04</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>2592</td>
+                        <td>1048576</td>
+                        <td>224</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-1</td>
+                        <td>192.168.13.39:9100</td>
+                        <td>0.05</td>
+                        <td>0.11</td>
+                        <td>0.14</td>
+                        <td>3</td>
+                        <td>0</td>
+                        <td>1600</td>
+                        <td>1048576</td>
+                        <td>287</td>
+                        <td>11</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-2</td>
+                        <td>192.168.13.40:9100</td>
+                        <td>0.04</td>
+                        <td>0.10</td>
+                        <td>0.03</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1088</td>
+                        <td>1048576</td>
+                        <td>9</td>
+                        <td>8</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-3</td>
+                        <td>192.168.13.41:9100</td>
+                        <td>0.04</td>
+                        <td>0.10</td>
+                        <td>0.03</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1120</td>
+                        <td>1048576</td>
+                        <td>11</td>
+                        <td>8</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>clikhouse-test-logs</td>
+                        <td>192.168.13.42:9100</td>
+                        <td>0.00</td>
+                        <td>0.06</td>
+                        <td>0.01</td>
+                        <td>3</td>
+                        <td>0</td>
+                        <td>1312</td>
+                        <td>1048576</td>
+                        <td>5</td>
+                        <td>8</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>nginx-proxy</td>
+                        <td>192.168.13.43:9100</td>
+                        <td>0.01</td>
+                        <td>0.04</td>
+                        <td>0.00</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>1024</td>
+                        <td>2097152</td>
+                        <td>13</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.225:9100</td>
+                        <td>192.168.13.225:9100</td>
+                        <td>0.43</td>
+                        <td>0.83</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.45:9100</td>
+                        <td>192.168.13.45:9100</td>
+                        <td>3.26</td>
+                        <td>2.81</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.46:9100</td>
+                        <td>192.168.13.46:9100</td>
+                        <td>0.61</td>
+                        <td>0.82</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.91:9100</td>
+                        <td>192.168.13.91:9100</td>
+                        <td>0.57</td>
+                        <td>1.53</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.92:9100</td>
+                        <td>192.168.13.92:9100</td>
+                        <td>0.37</td>
+                        <td>0.56</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>192.168.13.93:9100</td>
+                        <td>192.168.13.93:9100</td>
+                        <td>0.34</td>
+                        <td>0.34</td>
+                        <td>0.00</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>0</td>
+                        <td>0</td>
+                    </tr>
+                    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>本报告由 K8S+Node 巡检系统自动生成 | 基于 Prometheus 数据 | 2026-04-29 15:27</p>
+    </div>
+</div>
+</body>
+</html>
+        

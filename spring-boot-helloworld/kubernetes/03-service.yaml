@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-boot-helloworld
+  namespace: demo
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/path:   /
+      prometheus.io/port:   '8888'
+spec:
+  selector: 
+    app: spring-boot-helloworld
+  #type: NodePort  
+  type: LoadBalancer
+  ports:
+    - name: httpport
+      port: 8888
+      targetPort: 8888
+      #nodePort: 32000

@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+LABEL description="夜莺 v7.7 回调回显服务 - 先打通再接阿里云"
+
+WORKDIR /app
+
+COPY requirements-echo.txt .
+RUN pip install --no-cache-dir -r requirements-echo.txt
+
+COPY n9e-echo-server.py .
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+CMD ["python", "n9e-echo-server.py"]

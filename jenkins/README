@@ -1,0 +1,774 @@
+# Jenkins 共享库 - Java 自动化发布流程
+
+## 流程总览
+
+```
+代码提交 → Jenkins 构建镜像 → Harbor 存储镜像 → 生成发布单 → 企业微信通知审批 → 审批通过 → K8s 容器发布 → 发布记录 → 回滚
+```
+
+## 核心特性
+
+| 特性 | 说明 |
+|------|------|
+| **发布单管理** | 每次发布自动生成发布单（REL-yyyyMMdd-NNN），全流程追溯 |
+| **企业微信审批** | uat/prod 环境企业微信通知 + 审批，dev/test 自动通过 |
+| **双模式审批** | simple（群机器人+Jenkins input）/ app（企业微信应用审批） |
+| **发布记录** | 部署成功/失败自动记录，回滚可追溯 |
+| **工作留痕** | 每步操作记录操作人、时间、结果 |
+
+## 环境策略
+
+### dev/test 环境（分支构建，自动部署）
+
+| 环境 | 触发方式 | 镜像标签格式 | 审批 | 部署 |
+|------|---------|-------------|------|------|
+| 开发环境 | push `dev` / MR → `dev` | `dev-20260515103745` | 无需 | 自动 |
+| 测试环境 | push `test` / MR → `test` | `test-20260515103745` | 无需 | 自动 |
+
+- 镜像 Tag 格式：`{分支slug}-{年月日时分秒}`
+- GitLab Push Webhook 自动触发构建和部署
+- 功能分支 `feature/*` 仅构建不部署
+
+### uat/prod 环境（标签构建，审批部署）
+
+| 环境 | 触发方式 | 标签格式 | 审批 | 部署 |
+|------|---------|---------|------|------|
+| 预发布环境 | 手动打 tag | `release-202605151037-v1.0.1` | 企业微信审批 | 手动触发 |
+| 生产环境 | 手动打 tag | `master-202605151037-v1.0.1` | 企业微信审批 | 手动触发 |
+
+- 标签格式：`{分支}-年月日时分-v版本号`
+- 必须通过企业微信审批后才能部署
+
+## 项目结构
+
+```
+jenkins-shared-library/
+├── Jenkinsfile.param              # 完整自动化发布流程 Jenkinsfile
+├── Jenkinsfile.rollback           # 回滚专用 Jenkinsfile
+├── src/com/devops/
+│   └── config.groovy              # 全局配置（含企业微信/审批/发布单配置）
+└── vars/
+    ├── approveProd.groovy         # 审批门禁（集成企业微信审批）
+    ├── dockerBuildPush.groovy     # Docker 镜像构建与推送
+    ├── gitCheckout.groovy         # Git 代码拉取
+    ├── javamavenBuild.groovy      # Java/Maven 编译构建
+    ├── k8sDeploy.groovy           # K8s 部署（集成发布记录）
+    ├── messageNotify.groovy       # 消息通知（钉钉 + 企业微信）
+    ├── paramBuild.groovy          # 参数化构建处理
+    ├── pipelineInit.groovy        # 流水线初始化（含发布单创建）
+    ├── releaseRecord.groovy       # 发布记录管理
+    ├── releaseTicket.groovy       # 发布单管理
+    ├── rollbackDeploy.groovy      # K8s 回滚部署（集成发布记录）
+    ├── securityCheck.groovy       # 安全扫描
+    └── wecomApprove.groovy        # 企业微信审批集成
+```
+
+## 配置说明
+
+### 1. Dockerfile 管理
+
+**Dockerfile 不需要放在 GitLab 仓库中**，直接在 Jenkins Job 配置中定义。
+
+#### 什么是 DOCKERFILE_CONTENT 参数
+
+`DOCKERFILE_CONTENT` 是 Jenkinsfile.param 中定义的一个 **`text` 类型参数**，在 Jenkins Job 中表现为一个多行文本框，运维在其中填写 Dockerfile 内容即可。
+
+| 参数名 | 类型 | UI 表现 | 说明 |
+|--------|------|---------|------|
+| `DOCKERFILE_CONTENT` | `text` | 多行文本框 | 填写 Dockerfile 内容，构建时自动写入工作空间 |
+
+所有 Pipeline 参数一览：
+
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| `BUILD_TYPE` | choice | 构建类型：auto/branch/tag |
+| `GIT_REPO_URL` | string | Git 仓库地址 |
+| `GIT_CREDENTIALS_ID` | string | Jenkins 凭据 ID |
+| `BRANCH_NAME` | string | 分支名 |
+| `TAG_NAME` | string | 标签名 |
+| `TARGET_ENV` | choice | 目标环境 |
+| `SHOULD_DEPLOY` | boolean | 是否部署 |
+| `BUILD_MESSAGE` | string | 构建说明 |
+| **`DOCKERFILE_CONTENT`** | **text** | **Dockerfile 内容（运维配置）** |
+
+#### 配置步骤
+
+**第一步：创建 Job**
+
+Jenkins → New Item → Pipeline → 按第 5 节创建流水线 Job
+
+**第二步：首次构建（让 Jenkins 识别参数定义）**
+
+Job 创建后，必须先手动触发一次构建，Jenkins 才会在 Job 配置页面生成所有参数的输入框。
+
+```
+Jenkins → user-service → Build Now（首次）
+```
+
+> 首次构建会失败是正常的，因为参数默认值为空。这次构建的目的是让 Jenkins 读取 Jenkinsfile.param 中的 parameters 定义。
+
+**第三步：配置 DOCKERFILE_CONTENT 默认值**
+
+首次构建后，Jenkins 已识别参数定义，现在设置默认值：
+
+```
+Jenkins → user-service → Configure（左侧菜单）
+    ↓
+滚动到 "This project is parameterized" 区域
+    ↓
+找到 DOCKERFILE_CONTENT 多行文本框
+    ↓
+填入该服务的 Dockerfile 内容
+    ↓
+保存
+```
+
+示例 - 标准 Java 服务：
+
+```dockerfile
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY target/*.jar app.jar
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+```
+
+示例 - 需要额外配置文件的服务：
+
+```dockerfile
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY target/*.jar app.jar
+COPY src/main/resources/application-prod.yml /app/config/
+RUN apk add --no-cache tzdata curl && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    apk del tzdata
+ENV JAVA_OPTS="-Xms512m -Xmx1g -XX:+UseG1GC"
+ENV SPRING_PROFILES_ACTIVE=prod
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/actuator/health || exit 1
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+```
+
+**第四步：验证**
+
+再次触发构建，确认日志中出现：
+
+```
+📄 使用 Jenkins Job 中定义的 Dockerfile
+✅ Dockerfile 已写入工作空间
+🔨 正在构建镜像：harbor.xxx.com/backend-services/user-service:dev-...
+```
+
+#### 多个服务不同配置
+
+每个服务创建独立的 Jenkins Job，各自配置自己的 `DOCKERFILE_CONTENT`：
+
+```
+Jenkins Job: user-service
+  └── DOCKERFILE_CONTENT → EXPOSE 8080，-Xmx512m
+
+Jenkins Job: order-service
+  └── DOCKERFILE_CONTENT → EXPOSE 8081，-Xmx1g，HEALTHCHECK
+
+Jenkins Job: gateway-service
+  └── DOCKERFILE_CONTENT → EXPOSE 9090，-Xmx2g
+```
+
+#### 修改 Dockerfile
+
+```
+Jenkins → 该 Job → Configure → 修改 DOCKERFILE_CONTENT 文本框 → 保存
+```
+
+下次构建（包括 Webhook 自动触发）立即生效，无需修改 GitLab 仓库。
+
+#### 临时修改（仅单次构建）
+
+```
+Jenkins → 该 Job → Build with Parameters → 临时修改 DOCKERFILE_CONTENT → 构建
+```
+
+仅本次构建生效，不影响默认值。
+
+#### 工作原理
+
+```
+Jenkins Job 参数 DOCKERFILE_CONTENT（运维在 Configure 中定义默认值）
+    ↓ dockerBuildPush() 读取 params.DOCKERFILE_CONTENT
+    ↓ writeFile(file: 'Dockerfile', text: content) 写入工作空间
+Jenkins 工作空间/
+├── Dockerfile          ← 自动生成
+├── pom.xml / src/      ← 应用代码（gitCheckout 拉取）
+└── target/app.jar      ← 编译产物（javamavenBuild 生成）
+    ↓ docker build .
+本地镜像 → docker push → Harbor
+```
+
+#### 优先级
+
+| 优先级 | 来源 | 说明 |
+|--------|------|------|
+| 1（高） | Job 参数 `DOCKERFILE_CONTENT` | 运维在 Jenkins Job 配置中定义，推荐方式 |
+| 2（低） | 项目仓库根目录 `Dockerfile` | 如果参数为空，回退使用仓库中的文件 |
+
+### 2. 全局配置 (`src/com/devops/config.groovy`)
+
+#### 企业微信审批配置
+
+```groovy
+// 审批模式：simple(群机器人+Jenkins input) / app(企业微信应用审批)
+static String WECOM_APPROVE_MODE = "simple"
+
+// 企业微信群机器人 Webhook
+static String WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+
+// 企业微信应用配置（app 模式时使用）
+static String WECOM_CORP_ID = ""                          // 企业 ID
+static String WECOM_APP_AGENT_ID = ""                     // 应用 AgentId
+static String WECOM_APP_SECRET_CREDENTIALS_ID = ""        // Jenkins 中存储 Secret 的凭据 ID
+static String WECOM_APPROVAL_TEMPLATE_ID = ""             // 审批模板 ID
+
+// 审批超时（分钟）
+static int APPROVAL_TIMEOUT_MINUTES = 30
+
+// 审批人列表（Jenkins 用户 ID）
+static String APPROVER_USERS = "admin,devops,release-manager"
+
+// 需要审批的环境
+static List APPROVAL_ENV_LIST = ["uat", "prod"]
+```
+
+#### 发布单与发布记录配置
+
+```groovy
+// 发布记录存储路径
+static String RELEASE_RECORD_DIR = "/var/jenkins_home/release-records"
+
+// 发布单 ID 前缀
+static String RELEASE_TICKET_PREFIX = "REL"
+
+// 发布记录保留天数
+static int RELEASE_RECORD_RETENTION_DAYS = 180
+```
+
+### 2. Jenkins 凭据配置
+
+| 凭据 ID | 类型 | 用途 |
+|---------|------|------|
+| `harbor-credentials` | Username with password | Harbor 镜像仓库登录 |
+| `kubeconfig-dev/test/uat/prod` | Secret File | 各环境 K8s kubeconfig |
+| `wecom-app-secret`（可选） | Secret text | 企业微信应用 Secret |
+
+### 3. GitLab Webhook 配置
+
+进入 GitLab 项目 → **Settings** → **Integrations**：
+
+- URL：`http://your-jenkins-url/project/your-job-name`
+- 触发事件：
+  - `Push events`：dev/test 分支推送自动触发
+  - `Tag push events`：标签推送自动触发
+- Secret token：与 Jenkins 配置一致
+
+## 完整流程说明
+
+### 场景 1：开发环境自动部署
+
+```
+开发者 push 到 dev 分支
+    ↓ (GitLab Webhook 自动触发)
+Jenkins 自动构建
+    ↓
+pipelineInit() → 识别 dev 环境，生成分支镜像Tag → 创建发布单 REL-20260515-001
+    ↓
+编译 → 构建镜像 → 推送 Harbor
+    ↓
+approveProd() → dev 环境无需审批，自动通过
+    ↓
+k8sDeploy() → 部署到 K8s → 记录发布记录
+    ↓
+企业微信/钉钉通知：部署成功
+```
+
+### 场景 2：生产环境审批发布
+
+```
+运维打 tag: master-202605151037-v1.0.1
+    ↓ (GitLab Tag Push 触发，或 Jenkins 手动构建)
+Jenkins 构建
+    ↓
+pipelineInit() → 识别 prod 环境，使用 Tag 作为镜像Tag → 创建发布单 REL-20260515-005
+    ↓
+编译 → 构建镜像 → 推送 Harbor → 安全扫描
+    ↓
+企业微信通知：🔴 发布审批申请（含发布单号、服务、版本等信息）
+    ↓
+approveProd() → 等待审批人确认
+    ↓ (审批人在 Jenkins 或企业微信中确认)
+审批通过 → 记录审批人
+    ↓
+k8sDeploy() → 部署到 K8s → 记录发布记录
+    ↓
+企业微信通知：✅ 部署成功（含审批人、发布单号等）
+```
+
+### 场景 3：回滚
+
+```
+运维执行回滚 Jenkins Job
+    ↓
+选择环境、Deployment、回滚版本
+    ↓
+uat/prod 环境：企业微信回滚通知 + 审批确认
+    ↓
+执行 K8s 回滚
+    ↓
+记录回滚记录 → 关联原发布单 → 更新发布单状态为 rollback
+    ↓
+企业微信通知：↩️ 回滚完成
+```
+
+## 发布单生命周期
+
+```
+                    ┌──────────┐
+                    │ pending  │  (创建)
+                    └────┬─────┘
+                         │ 审批通过
+                    ┌────▼─────┐
+              ┌─────│ approved │
+              │     └────┬─────┘
+              │          │ 开始部署
+              │     ┌────▼─────┐
+              │     │deploying │
+              │     └────┬─────┘
+              │          │
+         ┌────┴────┐ ┌───┴────┐
+         │ rollback│ │success │
+         └─────────┘ └───┬────┘
+                         │
+                    ┌────▼─────┐
+                    │ failed   │
+                    └──────────┘
+```
+
+## 发布记录存储
+
+发布记录以 JSON 文件存储在 Jenkins 服务器上：
+
+```
+/var/jenkins_home/release-records/
+├── deploy-index.json              # 全局发布记录索引
+├── dev/
+│   └── REL-20260515-001.json      # dev 环境发布单详情
+├── test/
+│   └── REL-20260515-002.json
+├── uat/
+│   └── REL-20260515-003.json
+└── prod/
+    └── REL-20260515-005.json
+```
+
+每个发布单 JSON 包含完整的操作历史：
+
+```json
+{
+  "ticketId": "REL-20260515-005",
+  "serviceName": "user-service",
+  "environment": "prod",
+  "imageTag": "master-202605151037-v1.0.1",
+  "status": "success",
+  "approvedBy": "zhangsan",
+  "approveMethod": "jenkins_input",
+  "history": [
+    {"time": "2026-05-15 10:37:00", "action": "created", "user": "lisi", "detail": "发布单创建"},
+    {"time": "2026-05-15 10:38:30", "action": "approved", "user": "zhangsan", "detail": "审批通过（方式：jenkins_input）"},
+    {"time": "2026-05-15 10:40:00", "action": "deploy_start", "user": "system", "detail": "开始部署到 prod 环境"},
+    {"time": "2026-05-15 10:42:00", "action": "deploy_success", "user": "system", "detail": "部署成功"}
+  ]
+}
+```
+
+## 企业微信审批模式
+
+### 模式一：simple（群机器人 + Jenkins input）
+
+**推荐**，配置简单，无需企业微信应用
+
+1. 企业微信群机器人发送审批通知（Markdown 卡片）
+2. 通知中包含 Jenkins 构建链接
+3. 审批人点击链接到 Jenkins 页面点击确认
+4. 审批结果记录到发布单
+
+**配置**：只需配置 `WECOM_WEBHOOK`
+
+### 模式二：app（企业微信应用审批）
+
+**进阶**，审批在企业微信内完成
+
+1. 通过企业微信应用 API 发送审批申请
+2. 审批人在企业微信审批应用中操作
+3. Jenkins 轮询审批状态
+4. 审批结果自动回写
+
+**配置**：需要配置 `WECOM_CORP_ID`、`WECOM_APP_AGENT_ID`、`WECOM_APP_SECRET_CREDENTIALS_ID`、`WECOM_APPROVAL_TEMPLATE_ID`
+
+## 常见问题
+
+### Q: 企业微信通知收不到？
+
+1. 检查 `WECOM_WEBHOOK` 是否正确
+2. 确认 Jenkins 服务器能访问 `qyapi.weixin.qq.com`
+3. 在 Config 中替换 `YOUR_KEY` 为实际的 Webhook Key
+
+### Q: 发布单存在哪里？
+
+发布单存储在 `Config.RELEASE_RECORD_DIR`（默认 `/var/jenkins_home/release-records`）目录下，按环境分目录存储 JSON 文件。
+
+### Q: 如何查看历史发布记录？
+
+```groovy
+// 在 Script Console 或流水线中调用
+def records = releaseRecord.getHistory(serviceName: 'user-service', env: 'prod', limit: 20)
+records.each { println it }
+```
+
+### Q: 如何修改审批人列表？
+
+修改 `Config.APPROVER_USERS`，值为 Jenkins 用户 ID 逗号分隔。这些用户需要在 Jenkins 中有相应权限。
+
+### Q: 标签构建失败，提示"不支持的标签"？
+
+检查标签格式：
+- 预发布：`release-年月日时分-v版本`（如 `release-202605151037-v1.0.1`）
+- 生产：`master-年月日时分-v版本`（如 `master-202605151037-v1.0.1`）
+
+注意时间戳为 12 位（yyyyMMddHHmm），版本号为语义化版本（vX.Y.Z）。
+
+## Jenkins 配置详解
+
+### 1. 必装插件
+
+| 插件 | 用途 | 代码引用 |
+|------|------|---------|
+| **Pipeline** | 声明式/脚本式流水线 | 全局 |
+| **Pipeline: Shared Groovy Libraries** | 加载共享库 `@Library` | `Jenkinsfile.param` 第 8 行 |
+| **Git Plugin** | 代码拉取 `checkout` | `gitCheckout.groovy` |
+| **Credentials Binding Plugin** | `withCredentials` 注入凭据 | `dockerBuildPush.groovy`、`k8sDeploy.groovy` |
+| **Pipeline: Input Step** | `input` 审批等待 | `wecomApprove.groovy` |
+| **Build User Vars Plugin** | 获取 `BUILD_USER_ID` 触发人 | `pipelineInit.groovy`、`approveProd.groovy` |
+| **Timestamper** | 构建日志时间戳 `timestamps()` | `Jenkinsfile.param` |
+| **GitLab Plugin** | GitLab Webhook 触发 + MR 检测 | `gitCheckout.groovy` 使用 `CHANGE_ID`、`gitlabTargetBranch` |
+| **SonarQube Scanner for Jenkins**（可选） | 代码质量扫描 | `securityCheck.groovy`（当前注释） |
+
+> 安装方式：**Manage Jenkins** → **Plugins** → **Available plugins** → 搜索安装
+
+### 2. 全局工具配置
+
+**Manage Jenkins** → **Tools**：
+
+| 工具 | 名称 | 版本 | 说明 |
+|------|------|------|------|
+| **JDK** | `17` | JDK 17 | `javamavenBuild.groovy` 中 `java -version` |
+| **Maven** | `3.9` | Maven 3.9.x | `javamavenBuild.groovy` 中使用 `mvn` 或 `./mvnw` |
+| **Git** | `Default` | Git 2.x+ | `gitCheckout.groovy` 中使用 `git` 命令 |
+
+> Jenkins Agent 上必须预装：`docker`、`kubectl`、`curl`、`trivy`（可选）
+
+### 3. 凭据配置
+
+**Manage Jenkins** → **Credentials** → **System** → **Global credentials**：
+
+| 凭据 ID | 类型 | 用途 | 代码位置 |
+|---------|------|------|---------|
+| `harbor-credentials` | Username with password | Harbor 镜像仓库登录 | `dockerBuildPush.groovy` 第 13 行 |
+| `kubeconfig-dev` | Secret file | 开发环境 K8s kubeconfig | `config.groovy` → `K8S_CREDENTIALS` |
+| `kubeconfig-test` | Secret file | 测试环境 K8s kubeconfig | 同上 |
+| `kubeconfig-uat` | Secret file | 预发布环境 K8s kubeconfig | 同上 |
+| `kubeconfig-prod` | Secret file | 生产环境 K8s kubeconfig | 同上 |
+| `wecom-app-secret`（可选） | Secret text | 企业微信应用 Secret | `config.groovy` → `WECOM_APP_SECRET_CREDENTIALS_ID` |
+| Git 凭据（自定义 ID） | Username with password / SSH | Git 仓库访问 | `Jenkinsfile.param` 参数 `GIT_CREDENTIALS_ID` |
+
+**kubeconfig 文件创建方式**：
+
+```bash
+# 从各环境 K8s 集群获取 kubeconfig
+kubectl config view --raw --minify > kubeconfig-prod.yaml
+```
+
+然后在 Jenkins 中：
+1. 点击 **Add Credentials** → Kind 选 **Secret file**
+2. File 选择 `kubeconfig-prod.yaml`
+3. ID 填写 `kubeconfig-prod`
+
+### 4. 共享库配置
+
+**Manage Jenkins** → **System** → **Global Pipeline Libraries**：
+
+| 字段 | 值 |
+|------|-----|
+| Name | `devops-shared-lib` |
+| Default version | `master` |
+| Load implicitly | ❌ 不勾选（由 Jenkinsfile 显式 `@Library` 加载） |
+| Retrieval method | Modern SCM |
+| SCM | Git |
+| Repository URL | `你的共享库 Git 仓库地址` |
+| Credentials | Git 凭据 ID（私有仓库必填） |
+| Branch Specifier | `master` |
+
+> `Name` 必须为 `devops-shared-lib`，与 `Jenkinsfile.param` 第 8 行 `@Library('devops-shared-lib@master')` 一致
+
+### 5. 创建 Pipeline Job
+
+#### 5.1 发布流水线 Job
+
+**New Item** → **Pipeline**：
+
+| 配置项 | 值 |
+|--------|-----|
+| Job 名称 | 你的服务名（如 `user-service`） |
+| **Build Triggers** | 勾选 **Build when a change is pushed to GitLab** |
+| ├── Push Events | ✓ 分支过滤：`dev|test` |
+| ├── Tag Push Events | ✓ |
+| ├── Secret token | 生成 token，填入 GitLab Webhook |
+| **Pipeline** → Definition | Pipeline script from SCM |
+| ├── SCM | Git |
+| ├── Repository URL | 你的项目 Git 仓库地址 |
+| ├── Credentials | Git 凭据 ID |
+| ├── Branch Specifier | `*/master`（或 `*/main`） |
+| └── Script Path | `Jenkinsfile.param` |
+
+> Job 名称会作为 K8s Deployment 名称和镜像路径的一部分，建议与 K8s 中 Deployment 名称一致
+
+**首次构建后配置 Dockerfile**：
+
+Job 创建后先手动触发一次构建（让 Jenkins 识别参数定义），然后：
+
+```
+Jenkins → user-service Job → Configure → 参数 DOCKERFILE_CONTENT
+```
+
+填入该服务的 Dockerfile 内容，例如：
+
+```dockerfile
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY target/*.jar app.jar
+RUN apk add --no-cache tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC"
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+```
+
+保存后，后续所有构建（包括 Webhook 自动触发）都会使用此 Dockerfile。
+
+#### 5.2 回滚 Job
+
+**New Item** → **Pipeline**：
+
+| 配置项 | 值 |
+|--------|-----|
+| Job 名称 | `rollback-deploy`（或按需命名） |
+| **Pipeline** → Definition | Pipeline script from SCM |
+| ├── SCM | 同上 |
+| └── Script Path | `Jenkinsfile.rollback` |
+
+### 6. Jenkins 用户与权限
+
+**Manage Jenkins** → **Security** → **Configure Global Security**：
+
+#### 创建审批人账号
+
+代码中 `APPROVER_USERS = "admin,devops,release-manager"` 对应 Jenkins 用户 ID，必须创建：
+
+| Jenkins 用户 ID | 角色 | 权限要求 |
+|----------------|------|---------|
+| `admin` | 管理员 | 全部权限 |
+| `devops` | 运维 | Build/Read/Workspace 权限 |
+| `release-manager` | 发布负责人 | Build/Read 权限 |
+
+#### 权限矩阵配置（推荐 Role-Based Strategy 插件）
+
+| 角色 | 用户 | 权限 |
+|------|------|------|
+| `admin` | admin | Overall/Administer |
+| `devops` | devops | Job/Build, Job/Read, Job/Workspace, View/Read |
+| `developer` | 开发者 | Job/Read, View/Read（仅查看，不能审批） |
+| `release-manager` | release-manager | Job/Build, Job/Read |
+
+> 审批人在 `input` 步骤中点击确认需要 **Job/Build** 权限
+
+### 7. 服务器目录准备
+
+在 Jenkins 服务器（或 Agent）上执行：
+
+```bash
+# 创建发布记录存储目录
+mkdir -p /var/jenkins_home/release-records
+chmod 755 /var/jenkins_home/release-records
+
+# 确认 Jenkins 用户有写权限
+chown jenkins:jenkins /var/jenkins_home/release-records
+```
+
+### 8. Agent 工具检查
+
+确认 Jenkins Agent 上已安装以下命令行工具：
+
+```bash
+# 必装
+java -version        # JDK 17+
+mvn -version         # Maven 3.9+（或项目自带 mvnw）
+docker --version     # Docker 20+
+kubectl version      # kubectl 1.24+
+git --version        # Git 2.x+
+curl --version       # curl
+
+# 可选
+trivy --version      # Trivy 镜像安全扫描（未安装时安全扫描步骤会跳过）
+```
+
+### 9. GitLab Webhook 配置
+
+进入 GitLab 项目 → **Settings** → **Webhooks**：
+
+| 配置项 | 值 |
+|--------|-----|
+| URL | `http://your-jenkins-url/project/your-job-name` |
+| Secret token | 与 Jenkins Job 中 **Build Triggers** 生成的 token 一致 |
+| Trigger - Push events | ✓ 分支过滤填 `dev|test` |
+| Trigger - Tag push events | ✓ |
+| Trigger - Merge request events | ✓（可选，用于 MR 构建验证） |
+| SSL verification | 按实际情况 |
+
+### 10. GitLab 保护分支/Tag 配置
+
+进入 GitLab 项目 → **Settings** → **Repository** → **Protected branches/tags**：
+
+#### 保护分支
+
+| 分支 | 允许合并 | 允许推送 |
+|------|---------|---------|
+| `master` | Maintainer | No one（只能 MR） |
+| `release` | Maintainer | No one |
+| `dev` | Developer | Developer |
+| `test` | Developer+Maintainer | Developer |
+
+#### 保护 Tag
+
+| Tag 模式 | 允许创建 |
+|----------|---------|
+| `master-*` | Maintainer |
+| `release-*` | Maintainer |
+| `v*` | Maintainer |
+
+> 确保开发者（Developer 角色）无法直接打 `master-*` / `release-*` Tag，只有运维（Maintainer）可以
+
+### 11. 修改 Config 配置
+
+编辑 `src/com/devops/config.groovy`：
+
+```groovy
+// === 必改项 ===
+static String REGISTRY = "harbor.your-company.com"       // → 实际 Harbor 地址
+static String PROJECT = "backend-services"                // → 实际项目名
+static String WECOM_WEBHOOK = "https://...key=YOUR_KEY"   // → 实际企微群机器人 Key
+static String APPROVER_USERS = "admin,devops,release-manager"  // → 实际审批人 Jenkins ID
+
+// === 按需修改 ===
+// K8s 命名空间通过 Pipeline 参数 K8S_NAMESPACE 传入，不再在 Config 中硬编码
+static String RELEASE_RECORD_DIR = "/var/jenkins_home/release-records"  // → 实际存储路径
+static String DINGTALK_WEBHOOK = "https://...token=YOUR_TOKEN"  // → 钉钉 Webhook（不用可留空）
+
+// === 企业微信应用审批（app 模式才需要） ===
+static String WECOM_APPROVE_MODE = "simple"               // → 用 app 模式时改
+static String WECOM_CORP_ID = ""                          // → 企业 ID
+static String WECOM_APP_AGENT_ID = ""                     // → 应用 AgentId
+static String WECOM_APP_SECRET_CREDENTIALS_ID = ""        // → Jenkins 凭据 ID
+static String WECOM_APPROVAL_TEMPLATE_ID = ""             // → 审批模板 ID
+```
+
+## 落地实施 Checklist
+
+### 1. Jenkins 系统配置
+
+- [ ] 安装必装插件（Pipeline、Shared Libraries、Git、Credentials Binding、Input Step、Build User Vars、Timestamper、GitLab）
+- [ ] 配置全局工具：JDK 17、Maven 3.9、Git
+- [ ] 配置全局共享库 `devops-shared-lib`
+- [ ] 配置凭据：`harbor-credentials`、`kubeconfig-dev/test/uat/prod`
+- [ ] 创建审批人 Jenkins 账号：admin、devops、release-manager
+- [ ] 配置权限矩阵（Role-Based Strategy）
+- [ ] 创建发布记录存储目录：`mkdir -p /var/jenkins_home/release-records`
+
+### 2. 创建 Jenkins Job
+
+- [ ] 创建发布流水线 Job（Script Path: `Jenkinsfile.param`）
+- [ ] 配置 GitLab Webhook 触发器
+- [ ] 创建回滚 Job（Script Path: `Jenkinsfile.rollback`）
+
+### 3. 修改 Config 配置
+
+- [ ] 修改 `REGISTRY` 为实际 Harbor 地址
+- [ ] 修改 `PROJECT` 为实际项目名
+- [ ] 修改 `WECOM_WEBHOOK` 为实际群机器人 Key
+- [ ] 修改 `APPROVER_USERS` 为实际审批人
+- [ ] 修改 `RELEASE_RECORD_DIR` 为实际存储路径
+- [ ] 按需调整 `K8S_CREDENTIALS`
+- [ ] 在 Jenkins Job 参数中为每个服务设置 `K8S_NAMESPACE` 默认值
+
+### 4. GitLab 配置
+
+- [ ] 配置 Webhook（Push events + Tag push events）
+- [ ] 配置保护分支（master/release 限制 Maintainer）
+- [ ] 配置保护 Tag（master-*/release-* 限制 Maintainer）
+
+### 5. Agent 环境检查
+
+- [ ] 确认 Agent 已安装：JDK 17、Maven 3.9、Docker、kubectl、git、curl
+- [ ] 可选安装：Trivy（镜像安全扫描）
+
+### 6. 验证测试
+
+- [ ] dev 环境：push 代码到 dev 分支，验证自动构建部署
+- [ ] test 环境：push 代码到 test 分支，验证自动构建部署
+- [ ] uat 环境：打 release tag，验证企业微信通知和审批流程
+- [ ] prod 环境：打 master tag，验证企业微信通知和审批流程
+- [ ] 回滚：执行回滚 Job，验证回滚记录
+
+### 7. 运维规范
+
+- [ ] 标签命名规范：`分支-yyyyMMddHHmm-vX.Y.Z`
+- [ ] 回滚必须填写原因
+- [ ] 生产发布前确认测试环境验证通过
+
+Stage 0: 参数验证       → 内联脚本（无共享库调用）
+Stage 1: 应用构建参数    → paramBuild.groovy       ◀── 第一个共享库模块
+Stage 2: 拉取代码        → gitCheckout.groovy
+Stage 3: 流水线初始化    → pipelineInit.groovy
+Stage 4: 编译构建        → javamavenBuild.groovy
+Stage 5: 镜像构建与推送   → dockerBuildPush.groovy
+Stage 6: 安全扫描        → securityCheck.groovy
+Stage 7: 审批门禁        → approveProd.groovy
+Stage 8: K8s 部署        → k8sDeploy.groovy
+Stage 9: 发布确认        → releaseTicket.groovy / releaseRecord.groovy
+Post  : 通知            → messageNotify.groovy
+
+
+GitLab 端配置
+code
+项目 → Settings → Webhooks → Add webhook
+字段	                值
+URL	                http://jenkins:8080/generic-webhook-trigger/invoke?token=k8s-devops-abc123
+Secret Token	    k8s-devops-abc123（加密验证，可选）
+Trigger	            ✅ Push events
+Branch filter	    ^(dev|test)$ （正则匹配）
+SSL verification	内网可关
+完成后点 Add webhook → Test → Push events，Jenkins 应收到触发。
+
+在项目中设置 core.ignorecase=false ，只影响当前项目
+git config core.ignorecase false

@@ -1,0 +1,359 @@
+# ============================================================
+# Rocky Linux - Kubernetes 环境初始化
+# 使用方式:
+#   ansible-playbook -i hosts k8s-env-setup.yaml -l k8s_cluster
+#   单步: --tags yum,tools,hostname,hosts,time,selinux,swap,ipvs,kernel,sysctl,limits
+#   master: -l k8s_master   |   node: -l k8s_node
+# ============================================================
+
+# ============================================================
+# Play 1: 所有节点通用配置
+# ============================================================
+- name: "[基础] YUM 源 + 工具 + 时间 + SELinux + SWAP + IPVS + 内核 + sysctl + limits"
+  hosts: k8s_cluster
+  gather_facts: yes
+  tags: [always]
+  tasks:
+
+    # ========== 腾讯源 ==========
+    - name: 配置腾讯 Rocky Linux YUM 源
+      shell: |
+        sed -e 's|^mirrorlist=|#mirrorlist=|g' \
+            -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.cloud.tencent.com/rocky|g' \
+            -i.bak \
+            /etc/yum.repos.d/[Rr]ocky*.repo
+      tags: [yum]
+
+    - name: 重建 YUM 缓存
+      shell: |
+        yum clean all
+        yum makecache
+      tags: [yum]
+
+    - name: 安装 EPEL
+      yum: name=epel-release state=present
+      tags: [yum]
+
+    # ========== 工具 ==========
+    - name: 安装基础工具
+      yum:
+        name:
+          - vim
+          - wget
+          - net-tools
+          - ipset
+          - ipvsadm
+          - chrony
+        state: present
+      tags: [tools]
+
+    - name: vim 开启行号
+      lineinfile:
+        path: /root/.vimrc
+        line: "set nu"
+        create: yes
+      tags: [tools]
+
+    # ========== 时间同步 ==========
+    - name: 启动 Chrony
+      systemd: name=chronyd enabled=yes state=started
+      tags: [time]
+
+    # ========== SELinux ==========
+    - name: 临时关闭 SELinux
+      command: setenforce 0
+      ignore_errors: yes
+      tags: [selinux]
+
+    - name: 永久关闭 SELinux
+      lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: SELINUX=disabled
+      tags: [selinux]
+
+    # ========== SWAP ==========
+    - name: 关闭 SWAP（临时）
+      command: swapoff -a
+      ignore_errors: yes
+      tags: [swap]
+
+    - name: 关闭 SWAP（永久）
+      replace:
+        path: /etc/fstab
+        regexp: '^(.*swap.*)$'
+        replace: '#\1'
+      tags: [swap]
+
+    # ========== IPVS ==========
+    - name: IPVS 模块脚本目录
+      file: path=/etc/sysconfig/modules state=directory
+      tags: [ipvs]
+
+    - name: 传输 IPVS 模块脚本
+      copy:
+        src: files/k8s/ipvs.modules
+        dest: /etc/sysconfig/modules/ipvs.modules
+        mode: '0755'
+      tags: [ipvs]
+
+    - name: 加载 IPVS 模块
+      shell: |
+        bash /etc/sysconfig/modules/ipvs.modules
+        lsmod | grep -e ip_vs -e nf_conntrack
+      tags: [ipvs]
+
+    # ========== 内核模块 ==========
+    - name: 传输 modules-load 配置
+      copy:
+        src: files/k8s/modules-load-k8s.conf
+        dest: /etc/modules-load.d/k8s.conf
+      tags: [kernel]
+
+    - name: 加载内核模块
+      modprobe: name={{ item }} state=present
+      loop: [overlay, br_netfilter]
+      tags: [kernel]
+
+    # ========== k8s sysctl ==========
+    - name: 传输 k8s sysctl 配置
+      copy:
+        src: files/k8s/sysctl-k8s.conf
+        dest: /etc/sysctl.d/k8s.conf
+      tags: [kernel]
+
+    - name: 应用 sysctl
+      command: sysctl --system
+      changed_when: false
+      tags: [kernel]
+
+    # ========== 内核调优 ==========
+    - name: 传输 99-sysctl.conf
+      copy:
+        src: files/k8s/99-sysctl.conf
+        dest: /etc/sysctl.d/99-sysctl.conf
+      tags: [sysctl]
+
+    - name: 应用内核调优
+      command: sysctl --system
+      changed_when: false
+      tags: [sysctl]
+
+    # ========== 资源限制 ==========
+    - name: 追加 limits.conf
+      blockinfile:
+        path: /etc/security/limits.conf
+        block: "{{ lookup('file', 'files/k8s/limits.conf') }}"
+        marker: "# {mark} ANSIBLE MANAGED - K8s Limits"
+      tags: [limits]
+
+    # ========== Containerd ==========
+    - name: 配置腾讯 Docker CE YUM 源
+      get_url:
+        url: https://mirrors.cloud.tencent.com/docker-ce/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+      tags: [containerd]
+
+    - name: 重建 YUM 缓存
+      shell: yum makecache
+      tags: [containerd]
+
+    - name: 安装 Containerd 1.7.19
+      yum:
+        name: containerd.io-1.7.19
+        state: present
+      tags: [containerd]
+
+    - name: 生成 Containerd 默认配置
+      shell: containerd config default > /etc/containerd/config.toml
+      tags: [containerd]
+
+    - name: 修改 cgroup Driver 为 systemd
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+      tags: [containerd]
+
+    - name: 替换 sandbox_image 为阿里云镜像
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'registry\.k8s\.io/pause:3\.8'
+        replace: 'registry.aliyuncs.com/google_containers/pause:3.9'
+      tags: [containerd]
+
+    - name: 启用 config_path 镜像加速目录
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'config_path = ""'
+        replace: 'config_path = "/etc/containerd/certs.d/"'
+      tags: [containerd]
+
+    - name: 创建镜像加速目录并传输配置
+      loop:
+        - docker.io
+        - registry.k8s.io
+        - quay.io
+        - docker.elastic.co
+      file:
+        path: "/etc/containerd/certs.d/{{ item }}"
+        state: directory
+      tags: [containerd]
+
+    - name: 传输镜像加速 hosts.toml 配置
+      loop:
+        - docker.io
+        - registry.k8s.io
+        - quay.io
+        - docker.elastic.co
+      copy:
+        src: "files/k8s/containerd/{{ item }}/hosts.toml"
+        dest: "/etc/containerd/certs.d/{{ item }}/hosts.toml"
+      tags: [containerd]
+
+    - name: 重载 systemd 守护进程
+      systemd:
+        daemon_reload: yes
+      tags: [containerd]
+
+    - name: 启动并启用 Containerd
+      systemd:
+        name: containerd
+        state: restarted
+        enabled: yes
+      tags: [containerd]
+
+    - name: 等待 Containerd 就绪
+      wait_for:
+        path: /var/run/containerd/containerd.sock
+        timeout: 10
+      tags: [containerd]
+
+    # ========== crictl ==========
+    - name: 配置 crictl（追加模式）
+      blockinfile:
+        path: /etc/crictl.yaml
+        block: |
+          runtime-endpoint: unix:///var/run/containerd/containerd.sock
+          image-endpoint: unix:///var/run/containerd/containerd.sock
+          timeout: 10
+          debug: false
+
+# ============================================================
+# Play 2: 主机名（串行）
+# ============================================================
+- name: "[主机名] Master"
+  hosts: k8s_master
+  gather_facts: no
+  serial: 1
+  tags: [hostname]
+  tasks:
+    - name: 设置主机名 k8s-master
+      hostname: name=k8s-master
+
+- name: "[主机名] Node 节点"
+  hosts: k8s_node
+  gather_facts: no
+  serial: 1
+  tags: [hostname]
+  tasks:
+    - name: 设置主机名
+      hostname:
+        name: "k8s-node{{ node_index + 1 }}"
+      vars:
+        node_index: "{{ groups['k8s_node'].index(inventory_hostname) }}"
+
+# ============================================================
+# Play 3: /etc/hosts
+# ============================================================
+- name: "[网络] /etc/hosts 解析"
+  hosts: k8s_cluster
+  gather_facts: no
+  tags: [hosts]
+  tasks:
+    - name: 写入 hosts 解析
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.1.10 k8s-master
+          192.168.1.11 k8s-node1
+          192.168.1.12 k8s-node2
+          192.168.1.13 k8s-node3
+        marker: "# {mark} ANSIBLE MANAGED - K8s Hosts"
+
+# ============================================================
+# Play 4: 确认摘要
+# ============================================================
+- name: "[摘要] 环境初始化结果"
+  hosts: k8s_cluster
+  gather_facts: no
+  tags: [always]
+  tasks:
+    - name: 检查关键模块
+      shell: |
+        echo "=== SELinux ===" && getenforce
+        echo "=== SWAP ===" && free -h | grep Swap
+        echo "=== 内核模块 ===" && lsmod | grep -E "br_netfilter|overlay|ip_vs" | awk '{print $1}' | sort -u
+        echo "=== 内核参数(关键) ===" && sysctl net.ipv4.ip_forward net.bridge.bridge-nf-call-iptables
+        echo "=== limits ===" && ulimit -n
+      register: summary
+      changed_when: false
+
+    - name: 显示摘要
+      debug:
+        msg: |
+          ╔══════════════════════════════════╗
+          ║  [{{ inventory_hostname }}]
+          ╠══════════════════════════════════╣
+          ║  {{ summary.stdout | replace('\n', '\n║  ') }}
+          ╚══════════════════════════════════╝
+
+# ============================================================
+# Play 5: 重启节点使所有配置生效（SELinux/SWAP/sysctl/limits）
+#   --tags reboot        → 重启
+#   --skip-tags reboot   → 跳过重启（默认）
+# ============================================================
+- name: "[重启] 重启所有节点使配置生效"
+  hosts: k8s_cluster
+  gather_facts: no
+  serial: 1
+  tags: [reboot]
+  tasks:
+    - name: 提示重启必要说明
+      debug:
+        msg: |
+          ╔══════════════════════════════════════╗
+          ║  ⚠️ 即将重启 {{ inventory_hostname }}
+          ║  以下配置重启后生效:
+          ║  - SELinux 永久关闭
+          ║  - SWAP 永久关闭
+          ║  - 内核模块 (br_netfilter/overlay)
+          ║  - 内核参数 (sysctl)
+          ║  - 资源限制 (limits)
+          ╚══════════════════════════════════════╝
+
+    - name: 重启节点并等待恢复
+      reboot:
+        reboot_timeout: 300
+        connect_timeout: 30
+        post_reboot_delay: 10
+        msg: "Ansible 触发重启: K8s 环境初始化完成"
+
+    - name: 验证重启后关键状态
+      shell: |
+        echo "=== 启动时间 ===" && uptime -s
+        echo "=== SELinux ===" && getenforce
+        echo "=== SWAP ===" && free -h | grep Swap
+        echo "=== 内核模块 ===" && lsmod | grep -E "br_netfilter|overlay|ip_vs" | awk '{print $1}' | sort -u
+        echo "=== ip_forward ===" && sysctl net.ipv4.ip_forward
+      register: post_reboot
+      changed_when: false
+
+    - name: 重启验证结果
+      debug:
+        msg: |
+          ╔══════════════════════════════════╗
+          ║  [{{ inventory_hostname }}] 重启完成
+          ╠══════════════════════════════════╣
+          ║  {{ post_reboot.stdout | replace('\n', '\n║  ') }}
+          ╚══════════════════════════════════╝

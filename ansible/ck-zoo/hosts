@@ -1,0 +1,33 @@
+
+[dev_ck_zoo]
+192.168.13.39
+192.168.13.40
+192.168.13.41
+
+[dev_ck_zoo:vars]
+env=development
+
+[test_ck_zoo]
+192.168.13.62
+192.168.13.63
+192.168.13.64
+
+[test_ck_zoo:vars]
+env=testing
+
+[uat_ck_zoo]
+192.168.13.83
+192.168.13.84
+192.168.13.85
+
+[uat_ck_zoo:vars]
+env=uat
+
+[all:vars]
+ansible_user=root
+ansible_ssh_pass=1
+# ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# 服务路径
+java_home=/opt/server/jdk
+zookeeper_bin="/opt/server/zookeeper/bin"

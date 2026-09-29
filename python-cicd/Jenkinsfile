@@ -1,0 +1,83 @@
+// python-cicd 仓库自测 Jenkinsfile — 模块化 Stage + 参数选择
+
+@Library('ci-shared-lib@main') _
+
+def parseEnvs(String raw) {
+    if (!raw?.trim()) return ['dev']
+    return raw.split(',').collect { it.trim() }.findAll { it }
+}
+
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'CICD_ROOT', defaultValue: '/opt/jenkins/python-cicd', description: 'Python 库路径')
+        string(name: 'CICD_STEPS', defaultValue: '', description: '留空=全部；示例: init,checkout,build')
+        string(name: 'DEPLOY_ENVS', defaultValue: 'dev', description: '部署环境')
+        string(name: 'K8S_NAMESPACE', defaultValue: 'default', description: 'K8s 命名空间')
+    }
+
+    stages {
+        stage('Init') {
+            when { expression { shouldRunStage('init') } }
+            steps {
+                script {
+                    cicdInit(
+                        cicdRoot    : params.CICD_ROOT,
+                        appName     : env.JOB_NAME,
+                        language    : 'java',
+                        buildTool   : 'maven',
+                        envs        : parseEnvs(params.DEPLOY_ENVS),
+                        k8sNamespace: params.K8S_NAMESPACE
+                    )
+                }
+            }
+        }
+
+        stage('Checkout') {
+            when { expression { shouldRunStage('checkout') } }
+            steps {
+                script { gitCheckoutStage() }
+            }
+        }
+
+        stage('Build') {
+            when { expression { shouldRunStage('build') } }
+            steps {
+                script { buildStage(language: 'java', buildTool: 'maven') }
+            }
+        }
+
+        stage('Docker Build') {
+            when { expression { shouldRunStage('docker') } }
+            steps {
+                script { dockerBuildStage(appName: env.JOB_NAME) }
+            }
+        }
+
+        stage('Security Scan') {
+            when { expression { shouldRunStage('scan') } }
+            steps {
+                script { securityScanStage() }
+            }
+        }
+
+        stage('Deploy') {
+            when { expression { shouldRunStage('deploy') } }
+            steps {
+                script {
+                    parseEnvs(params.DEPLOY_ENVS).each { targetEnv ->
+                        deployStage(environment: targetEnv, namespace: params.K8S_NAMESPACE, appName: env.JOB_NAME)
+                    }
+                }
+            }
+        }
+
+        stage('Notify') {
+            when { expression { shouldRunStage('notify') } }
+            steps {
+                script { notifyStage(appName: env.JOB_NAME, status: 'SUCCESS') }
+            }
+        }
+    }
+}

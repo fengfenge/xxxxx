@@ -1,0 +1,63 @@
+// 回滚 Job 示例 — Jenkinsfile 按需调用 vars（不用 rollbackPipeline 入口）
+
+@Library('ci-shared-lib@main') _
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'TARGET_ENV', choices: ['dev', 'test', 'staging', 'uat', 'prod'])
+        string(name: 'K8S_NAMESPACE', defaultValue: 'default', description: 'K8s 命名空间')
+        string(name: 'DEPLOYMENT_NAME', defaultValue: '', description: '留空=JOB_NAME')
+        string(name: 'REVISION', defaultValue: '', description: '回滚 revision，留空=上一版本')
+        string(name: 'CICD_ROOT', defaultValue: '/opt/jenkins/python-cicd')
+        string(name: 'CICD_STEPS', defaultValue: '', description: 'approve,rollback,notify')
+    }
+
+    stages {
+        stage('Init') {
+            when { expression { shouldRunStage('init') } }
+            steps {
+                script { bootstrapCicdLib(cicdRoot: params.CICD_ROOT) }
+            }
+        }
+
+        stage('Approve') {
+            when { expression { shouldRunStage('approve') } }
+            steps {
+                script { approvalStage(environment: params.TARGET_ENV) }
+            }
+        }
+
+        stage('Rollback') {
+            when { expression { shouldRunStage('rollback') } }
+            steps {
+                script {
+                    def kubeId = "kubeconfig-${params.TARGET_ENV}"
+                    withCredentials([file(credentialsId: kubeId, variable: 'KUBECONFIG_FILE')]) {
+                        pythonCicd('rollback', [
+                            env            : params.TARGET_ENV,
+                            deployment_name: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                            namespace      : params.K8S_NAMESPACE,
+                            revision       : params.REVISION,
+                            KUBECONFIG_FILE: env.KUBECONFIG_FILE
+                        ])
+                    }
+                }
+            }
+        }
+
+        stage('Notify') {
+            when { expression { shouldRunStage('notify') } }
+            steps {
+                script {
+                    notifyStage(
+                        appName: params.DEPLOYMENT_NAME ?: env.JOB_NAME,
+                        status : 'SUCCESS',
+                        message: '回滚完成'
+                    )
+                }
+            }
+        }
+    }
+}

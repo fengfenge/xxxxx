@@ -1,0 +1,110 @@
+# ============================================================
+# Kafka 集群运行状态检测 Playbook（只读，不改变任何服务）
+# 使用方式:
+#   ansible-playbook -i hosts kafka_check.yaml -l dev_kafka
+#   ansible-playbook -i hosts kafka_check.yaml -l test_kafka
+# ============================================================
+
+- name: "[检测] Kafka 集群运行状态"
+  hosts: all
+  gather_facts: yes
+  tags: [always]
+  tasks:
+
+    # ============================================================
+    # 1. Zookeeper 状态检查
+    # ============================================================
+    - name: 检查 Zookeeper 进程
+      shell: ps -ef | grep "zookeeper" | grep -v grep | wc -l
+      register: zk_process
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 检查 Zookeeper 端口 2181
+      shell: ss -tlnp 2>/dev/null | grep -c ':2181 ' || netstat -tlnp 2>/dev/null | grep -c ':2181 ' || echo 0
+      register: zk_port
+      changed_when: false
+      ignore_errors: yes
+
+    # ============================================================
+    # 2. Kafka 状态检查
+    # ============================================================
+    - name: 检查 Kafka 进程
+      shell: ps -ef | grep "kafka.Kafka" | grep -v grep | wc -l
+      register: kafka_process
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 检查 Kafka 端口 9092
+      shell: ss -tlnp 2>/dev/null | grep -c ':9092 ' || netstat -tlnp 2>/dev/null | grep -c ':9092 ' || echo 0
+      register: kafka_port
+      changed_when: false
+      ignore_errors: yes
+
+    # ============================================================
+    # 3. Kafka 日志检查
+    # ============================================================
+    - name: 检查 Kafka 日志中最近错误
+      shell: |
+        if [ -f /opt/server/kafka/logs/server.log ]; then
+          tail -200 /opt/server/kafka/logs/server.log 2>/dev/null | grep -i "ERROR" | tail -5
+        else
+          echo "日志文件不存在"
+        fi
+      register: kafka_errors
+      changed_when: false
+      ignore_errors: yes
+
+    - name: 获取 server.log 最后修改时间
+      shell: |
+        if [ -f /opt/server/kafka/logs/server.log ]; then
+          stat -c '%y' /opt/server/kafka/logs/server.log 2>/dev/null | cut -d'.' -f1
+        else
+          echo "不存在"
+        fi
+      register: log_mtime
+      changed_when: false
+      ignore_errors: yes
+
+    # ============================================================
+    # 4. 磁盘空间检查
+    # ============================================================
+    - name: 检查 Kafka 日志目录磁盘使用
+      shell: df -h /opt/server/kafka/logs 2>/dev/null | tail -1 | awk '{print "使用: "$3"/"$2" ("$5")"}'
+      register: disk_usage
+      changed_when: false
+      ignore_errors: yes
+
+    # ============================================================
+    # 5. 汇总输出
+    # ============================================================
+    - name: "============================================================"
+      debug:
+        msg: ""
+
+    - name: 节点状态汇总
+      debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════╗
+          ║  节点: {{ inventory_hostname }}  Broker ID: {{ kafka_broker_id }}
+          ╠══════════════════════════════════════════════════════╣
+          ║  Zookeeper:
+          ║    进程: {% if (zk_process.stdout | default('0') | trim | int) > 0 %}✅ 运行中{% else %}❌ 未运行{% endif %}
+          ║    端口 2181: {% if (zk_port.stdout | default('0') | trim | int) > 0 %}✅ 监听中{% else %}❌ 未监听{% endif %}
+          ║
+          ║  Kafka:
+          ║    进程: {% if (kafka_process.stdout | default('0') | trim | int) > 0 %}✅ 运行中{% else %}❌ 未运行{% endif %}
+          ║    端口 9092: {% if (kafka_port.stdout | default('0') | trim | int) > 0 %}✅ 监听中{% else %}❌ 未监听{% endif %}
+          ║    日志时间: {{ log_mtime.stdout | default('未知') }}
+          ║
+          ║  磁盘: {{ disk_usage.stdout | default('未知') }}
+          ║
+          ║  {% if (kafka_process.stdout | default('0') | trim | int) > 0 %}
+          ║  最近错误日志:
+          ║  {{ kafka_errors.stdout | default('无') }}
+          ║  {% endif %}
+          ╚══════════════════════════════════════════════════════╝
+
+    - name: "============================================================"
+      debug:
+        msg: ""

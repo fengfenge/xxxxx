@@ -1,0 +1,52 @@
+# ============================================================
+# Rocky Linux 9 - 安装 kubeadm / kubelet / kubectl
+# 前置条件: 先执行 k8s-env-setup.yaml 完成环境初始化
+# 使用方式:
+#   ansible-playbook -i hosts install-kubeadm.yaml
+#   仅 Master: -l k8s_master
+#   仅 Node:   -l k8s_node
+# ============================================================
+
+- hosts: k8s_cluster
+  become: true
+  vars:
+    kube_version: "1.32"
+    kube_release: "1.32.8-1.1"
+  tasks:
+
+    # ========== Kubernetes YUM 源 ==========
+    - name: 添加阿里云 Kubernetes YUM 源
+      copy:
+        dest: /etc/yum.repos.d/kubernetes.repo
+        content: |
+          [kubernetes]
+          name=Kubernetes
+          baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v{{ kube_version }}/rpm/
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v{{ kube_version }}/rpm/repodata/repomd.xml.key
+
+    - name: 重建 YUM 缓存
+      shell: yum makecache
+
+    # ========== 安装 K8s 组件 ==========
+    - name: 安装 kubeadm / kubelet / kubectl
+      yum:
+        name:
+          - kubelet-{{ kube_release }}
+          - kubeadm-{{ kube_release }}
+          - kubectl-{{ kube_release }}
+        state: present
+        disable_excludes: kubernetes
+
+    - name: 配置 kubelet --node-ip
+      lineinfile:
+        path: /etc/sysconfig/kubelet
+        regexp: "^KUBELET_EXTRA_ARGS=.*--node-ip="
+        line: KUBELET_EXTRA_ARGS=--node-ip={{ node_ip }}
+        create: yes
+
+    - name: 启用 kubelet（暂不启动，kubeadm init 时启动）
+      systemd:
+        name: kubelet
+        enabled: yes

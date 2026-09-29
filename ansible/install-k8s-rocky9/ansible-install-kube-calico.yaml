@@ -1,0 +1,117 @@
+# ============================================================
+# Rocky Linux 9 - 初始化 Kubernetes 控制平面 + Calico CNI + Join
+# 前置条件: 先执行 install-kubeadm.yaml 安装 K8s 组件
+# 使用方式:
+#   ansible-playbook -i hosts ansible-install-kube-calico.yaml
+#   仅 Master: -l k8s_master
+#   仅 Node:   -l k8s_node
+# ============================================================
+
+- hosts: k8s_master
+  vars:
+    k8s_version: "v1.32.8"
+    pod_cidr: "10.244.0.0/16"
+    pod_cidr_block_size: "24"
+    service_cidr: "10.96.0.0/12"
+    # mode: routing, tunneling
+    mode: "tunneling"
+    # tunnel protocol: IPIP, VXLAN
+    tunnel_protocol: "IPIP"
+    image_repo: "registry.aliyuncs.com/google_containers"
+    kube_apiserver_advertise_address: "{{ node_ip }}"
+  tasks:
+
+    # ========== kubeadm init ==========
+    - name: 初始化 Kubernetes 控制平面
+      become: true
+      command: >
+        kubeadm init
+        --pod-network-cidr={{ pod_cidr }}
+        --apiserver-advertise-address={{ kube_apiserver_advertise_address }}
+        --apiserver-cert-extra-sans={{ kube_apiserver_advertise_address }}
+        --image-repository={{ image_repo }}
+        --service-cidr={{ service_cidr }}
+        --kubernetes-version={{ k8s_version }}
+
+    # ========== kubeconfig ==========
+    - name: 创建 kubeconfig 目录
+      command: mkdir -p "$HOME/.kube"
+
+    - name: 复制 admin.conf 到 kubeconfig
+      become: true
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "$HOME/.kube/config"
+        remote_src: yes
+
+    # ========== Calico CNI ==========
+    - name: 复制 calico.yaml
+      ansible.builtin.copy:
+        src: calico.yaml
+        dest: ./calico.yaml
+
+    - name: 替换 Calico POD CIDR 和 BLOCK SIZE
+      shell: |
+        PODCIDR="{{ pod_cidr }}"
+        PODCIDRBLOCK="{{ pod_cidr_block_size }}"
+        sed -i -e "/CALICO_IPV4POOL_CIDR/{n;s@value.*@value: \"$PODCIDR\"@gi}" \
+               -e "/CALICO_IPV4POOL_BLOCK_SIZE/{n;s@value.*@value: \"$PODCIDRBLOCK\"@gi}" ./calico.yaml
+
+    - name: 配置 Calico - BGP 路由 + IPIP 隧道 (Cross-Subnet)
+      shell: |
+        sed -i -e '/CALICO_IPV4POOL_IPIP/{n;s@value.*@value: "Cross-Subnet"@gi}' \
+               -e '/CALICO_IPV4POOL_VXLAN/{n;s@value.*@value: "Never"@gi}' ./calico.yaml
+      when: mode == "routing" and tunnel_protocol == "IPIP"
+
+    - name: 配置 Calico - BGP 路由 + VXLAN 隧道 (Cross-Subnet)
+      shell: |
+        sed -i -e '/CALICO_IPV4POOL_VXLAN/{n;s@value.*@value: "Cross-Subnet"@gi}' \
+               -e '/CALICO_IPV4POOL_IPIP/{n;s@value.*@value: "Never"@gi}' ./calico.yaml
+      when: mode == "routing" and tunnel_protocol == "VXLAN"
+
+    - name: 配置 Calico - VXLAN 隧道 (Always)
+      shell: |
+        sed -i -e '/CALICO_IPV4POOL_VXLAN/{n;s@value.*@value: "Always"@gi}' \
+               -e '/CALICO_IPV4POOL_IPIP/{n;s@value.*@value: "Never"@gi}' ./calico.yaml
+      when: mode == "tunneling" and tunnel_protocol == "VXLAN"
+
+    - name: 配置 Calico - IPIP 隧道 (Always)
+      shell: |
+        sed -i -e '/CALICO_IPV4POOL_IPIP/{n;s@value.*@value: "Always"@gi}' \
+               -e '/CALICO_IPV4POOL_VXLAN/{n;s@value.*@value: "Never"@gi}' ./calico.yaml
+      when: mode == "tunneling" and tunnel_protocol == "IPIP"
+
+    - name: 等待 API Server 就绪
+      wait_for:
+        host: "{{ kube_apiserver_advertise_address }}"
+        port: 6443
+        timeout: 120
+
+    - name: 安装 Calico CNI
+      shell: kubectl apply -f ./calico.yaml
+
+    # ========== 生成 Join 命令 ==========
+    - name: 生成 kubeadm join 命令
+      command: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: 保存 join 命令到本地文件
+      local_action: copy content="{{ join_command.stdout_lines[0] }}" dest="./join-command"
+
+- hosts: k8s_node
+  become: true
+  tasks:
+
+    - name: 复制 join 命令到节点
+      copy:
+        src: join-command
+        dest: /tmp/join-command.sh
+        mode: "0777"
+
+    - name: 执行 kubeadm join
+      command: sh /tmp/join-command.sh
+
+    - name: 清理临时文件
+      file:
+        path: /tmp/join-command.sh
+        state: absent

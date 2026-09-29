@@ -1,0 +1,18 @@
+[nginx_servers]
+192.168.13.43 ng_env=dev
+192.168.13.66 ng_env=test
+192.168.13.76 ng_env=uat
+
+[nginx_servers:vars]
+ansible_user=root
+ansible_ssh_pass=1
+
+
+[haproxy_servers]
+47.112.120.205 hp_env=dev
+47.107.158.138 hp_env=test
+47.112.2.70 hp_env=uat
+
+[haproxy_servers:vars]
+ansible_user=root
+ansible_ssh_pass=Mrallen2020@

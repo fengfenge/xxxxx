@@ -1,0 +1,151 @@
+# 指定更新：ansible-playbook -i hosts change_certs.yaml --tags haproxy --limit <haproxy_ip>
+# 全部更新：ansible-playbook -i hosts change_certs.yaml 
+---
+- name: "更换非生产环境nginx节点的ssl证书"
+  hosts: nginx_servers
+  gather_facts: yes
+  serial: 1
+  tags: [nginx]
+  vars:
+    wildcard_certs: 'tian-power.cloud.*'
+    domain: '*.tian-power.cloud'
+
+  tasks:
+    - name: 创建ssl旧证书的备份目录
+      file:
+        path: /etc/nginx/conf.d/ssl/{{ ansible_date_time.date }}.bak
+        state: directory
+      become: true
+
+    - name: 查找需要备份的旧证书文件
+      find:
+        paths: /etc/nginx/conf.d/ssl
+        patterns: "tian-power.cloud.*"
+        file_type: file
+      register: cert_files_to_backup
+
+    - name: 备份ssl旧证书
+      copy:
+        src: "{{ item.path }}"
+        dest: /etc/nginx/conf.d/ssl/{{ ansible_date_time.date }}.bak
+        remote_src: yes
+      loop: "{{ cert_files_to_backup.files }}"
+      when: cert_files_to_backup.files | length > 0
+
+    - name: 替换ssl新证书私钥key
+      copy:
+        src: /apps/change_not_prod_certs/file/tian-power.cloud.key
+        dest: /etc/nginx/conf.d/ssl/tian-power.cloud.key
+        remote_src: no
+
+    - name: 替换ssl新证书公钥pem
+      copy:
+        src: /apps/change_not_prod_certs/file/tian-power.cloud.pem
+        dest: /etc/nginx/conf.d/ssl/tian-power.cloud.pem
+        remote_src: no
+    
+    - name: check nginx config
+      command: nginx -t
+      changed_when: false
+      become: true
+
+    - name: reload nginx
+      command: nginx -s reload
+      become: true
+      changed_when: false
+
+    - name: 更新完成
+      debug:
+        msg: "证书{{ ng_env }}环境nginx更新完成"
+
+    - name: 获取服务器证书信息
+      shell: |
+        openssl s_client -connect {{ inventory_hostname }}:443 -servername {{ inventory_hostname }} < /dev/null 2>/dev/null | \
+        openssl x509 -noout -dates -subject
+      register: cert_info
+      when: not ansible_check_mode
+
+    - name: 打印证书信息（调试）
+      debug:
+        var: cert_info.stdout_lines
+      when: not ansible_check_mode
+
+    - name: 断言证书信息匹配预期
+      assert:
+        that:
+          - ansible_check_mode or ('2026' in cert_info.stdout)
+          - ansible_check_mode or (domain in cert_info.stdout)
+        success_msg: "证书验证通过"
+        fail_msg: "证书验证失败，请检查证书配置"
+
+- name: "更换非生产的haproxy的ssl证书"
+  hosts: haproxy_servers
+  gather_facts: yes
+  serial: 1
+  tags: [haproxy]
+  vars:
+    wildcard_certs: 'tian-power.cloud.*'
+    domain: '*.tian-power.cloud'
+    cert_file: '/etc/haproxy/certs/tian-power.cloud.pem'    
+
+  tasks:
+    - name: 创建ssl旧证书的备份目录
+      file:
+        path: /etc/haproxy/certs/{{ ansible_date_time.date }}.bak
+        state: directory
+      become: true
+
+    - name: 查找需要备份的旧证书文件
+      find:
+        paths: /etc/haproxy/certs
+        patterns: "tian-power.cloud.*"
+        file_type: file
+      register: cert_files_to_backup
+
+    - name: 备份ssl旧证书
+      copy:
+        src: "{{ item.path }}"
+        dest: /etc/haproxy/certs/{{ ansible_date_time.date }}.bak
+        remote_src: yes
+      loop: "{{ cert_files_to_backup.files }}"
+      when: cert_files_to_backup.files | length > 0
+
+    - name: 替换ssl新证书私钥key
+      copy:
+        src: /apps/change_not_prod_certs/file/tian-power.cloud.key
+        dest: /etc/haproxy/certs/tian-power.cloud.key
+        remote_src: no
+
+    - name: 替换ssl新证书公钥pem
+      copy:
+        src: /apps/change_not_prod_certs/file/tian-power.cloud.pem
+        dest: /etc/haproxy/certs/tian-power.cloud.pem
+        remote_src: no
+    # 当前使用spug生成的证书块有4个，需要移除最后两个证书块
+    # 叶子证书（*.tian-power.cloud）→ 中间证书 1（ZeroSSL RSA DV SSL CA 2）→ 中间证书 2（Sectigo Public Server Authentication Root R46）→ 根证书（USERTrust RSA Certification Authority）
+    - name: 移除最后1个证书块
+      shell: |
+        total=$(grep -c '^-----BEGIN CERTIFICATE-----' {{ cert_file }})
+        awk -v t=$total '/-----BEGIN CERTIFICATE-----/{n++} n < t' {{ cert_file }} > /tmp/certs_chain.pem
+
+    - name: 覆盖原证书文件
+      copy:
+        src: /tmp/certs_chain.pem
+        dest: "{{ cert_file }}"
+        remote_src: yes
+
+    - name: 将私钥追加到pem文件（haproxy需要合并的证书）
+      shell: cat /etc/haproxy/certs/tian-power.cloud.key >> /etc/haproxy/certs/tian-power.cloud.pem
+      become: true
+      changed_when: true
+
+    - name: 重启haproxy
+      service:
+        name: haproxy
+        state: restarted
+        enabled: true
+      become: true
+
+    - name: 更新完成
+      debug:
+        msg: "证书{{ hp_env }}环境haproxy更新完成"

@@ -1,0 +1,33 @@
+# ---------- 开发环境 ----------
+[dev_mongo]
+192.168.13.36  mongo_port=27017
+192.168.13.37  mongo_port=27017
+192.168.13.38  mongo_port=27017
+
+[dev_mongo:vars]
+env=development
+mongo_start_script=/opt/server/mongodb/bin/start.sh
+
+# ---------- 测试环境 ----------
+[test_mongo]
+192.168.13.59  mongo_port=27017
+192.168.13.60  mongo_port=27017
+192.168.13.61  mongo_port=27017
+
+[test_mongo:vars]
+env=testing
+mongo_start_script=/data/server/mongodb/bin/start.sh
+
+# ---------- 预发布环境 ----------
+[uat_mongo]
+192.168.13.77  mongo_port=27017
+192.168.13.78  mongo_port=27017
+192.168.13.79  mongo_port=27017
+
+[uat_mongo:vars]
+env=uat
+mongo_start_script=/opt/server/mongodb/bin/start.sh
+
+[all:vars]
+ansible_user=root
+ansible_ssh_pass=1

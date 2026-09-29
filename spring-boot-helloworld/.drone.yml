@@ -1,0 +1,147 @@
+kind: pipeline
+type: docker
+name: java-maven-build
+
+# 环境变量：在整个流水线中可用
+environment:
+  APP_NAME: "spring-boot-helloworld"
+  APP_PORT: "8888"
+  HOST_PORT: "80"  
+  DOCKER_REGISTRY: "harbor.wang.org"
+  DOCKER_REPO: "library/spring-boot-helloworld"
+  # 镜像标签：如果是tag事件，使用标签名称；如果是push事件，使用commit哈希
+  #DOCKER_TAG: ${DRONE_TAG:-${DRONE_COMMIT_SHA:0:8}}
+  DOCKER_TAG: ${DRONE_BUILD_NUMBER}
+
+# 缓存配置
+cache:
+  - name: maven-repo
+    path: /root/.m2
+    keys:
+      - maven-{{ checksum "pom.xml" }}
+      - maven-
+
+# 步骤定义
+steps:
+  - name: clone-and-info
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/maven:3.9.9-eclipse-temurin-8-alpine
+    commands:
+      - echo "=== 环境检查 ==="
+      - mvn -v
+      - java -version
+      - env | sort
+      - echo "=== 目录结构 ==="
+      - pwd
+      - ls -la
+      - echo "=== 缓存检查 ==="
+      - ls -la /root/.m2 2>/dev/null || echo "缓存目录为空（首次运行）"
+    volumes:
+      - name: maven-repo
+        path: /root/.m2
+
+  - name: test
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/maven:3.9.9-eclipse-temurin-8-alpine
+    commands:
+      - echo "运行单元测试..."
+      - mvn clean test
+    volumes:
+      - name: maven-repo
+        path: /root/.m2
+    depends_on:
+      - clone-and-info
+    # 可选：仅当 src/test 目录有变更时运行
+    when:
+      changeset:
+        includes: [src/test/**]
+
+  - name: package
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/maven:3.9.9-eclipse-temurin-8-alpine
+    commands:
+      - echo "打包项目..."
+      - mvn clean package -DskipTests
+      - echo "=== 构建产物 ==="
+      - ls -lh target/*.jar
+      - echo "=== 文件大小 ==="
+      - du -sh target/
+    volumes:
+      - name: maven-repo
+        path: /root/.m2
+    depends_on:
+      - test
+
+  - name: docker-image-build-push
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/docker:29.1.2-dind-alpine3.23
+    environment:
+      # 只定义此step的变量
+      # 定义drone-runner主机的IP地址
+      DOCKER_HOST: "tcp://drone.wang.org:2375"	
+    commands:
+      - echo "配置 Docker 客户端环境变量..."
+      # 需要提前在打开运行在drone-runner主机的:2375端口,修改docker.service文件为ExecStart行，行尾加 -H tcp://0.0.0.0，并配置"insecure-registries": ["harbor.wang.org"]	  
+      #- export DOCKER_HOST="tcp://drone.wang.org:2375"
+      - env | sort  
+      - echo "登录到 Docker 仓库..."
+      - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" "$DOCKER_REGISTRY"
+      - echo "构建 Docker 镜像..."
+      - docker build -t "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG" -f Dockerfile .
+      - echo "推送 Docker 镜像..."
+      - docker push "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG"
+      
+      # 定义镜像TAG
+      - |
+        if [ "$DRONE_COMMIT_BRANCH" = "main" ] && [ "$DRONE_BUILD_EVENT" = "push" ]; then
+          echo "主分支推送，额外推送 latest 标签"
+          docker tag "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG" "$DOCKER_REGISTRY/$DOCKER_REPO:latest"
+          docker push "$DOCKER_REGISTRY/$DOCKER_REPO:latest"
+        elif [ "$DRONE_BUILD_EVENT" = "tag" ]; then
+          echo "标签事件，额外推送版本标签"
+          docker tag "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG" "$DOCKER_REGISTRY/$DOCKER_REPO:$DRONE_TAG"
+          docker push "$DOCKER_REGISTRY/$DOCKER_REPO:$DRONE_TAG"
+        fi
+      
+      - echo "清理临时镜像..."
+      - docker image prune -f
+    environment:
+      HARBOR_USERNAME:
+        from_secret: harbor_username
+      HARBOR_PASSWORD:
+        from_secret: harbor_password
+    depends_on:
+      - package
+    # 只在特定分支构建
+    when:
+      branch: [main, develop, release/*]
+      event: [push, tag]
+
+  - name: docker-run
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/docker:29.1.2-dind-alpine3.23
+    #environment:
+      #只定义此step的变量
+      #APP_NAME: "spring-boot-helloworld"
+      #APP_PORT: "8888"
+      #HOST_PORT: "80"	
+    commands:
+      - echo "配置 Docker 客户端环境变量..."
+      - echo "运行 Docker 容器..."
+      # 需要提前修改运行容器节点的docker.service文件为ExecStart行，行尾加 -H tcp://0.0.0.0，并配置"insecure-registries": ["harbor.wang.org"]	  
+      - env | sort
+      - docker -H 10.0.0.101:2375 rm   -f "$APP_NAME" 
+      - docker -H 10.0.0.101:2375 run  --name "$APP_NAME"  -p "$HOST_PORT:$APP_PORT" -d "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG"
+      - docker -H 10.0.0.102:2375 rm   -f "$APP_NAME"
+      - docker -H 10.0.0.102:2375 run  --name "$APP_NAME"  -p "$HOST_PORT:$APP_PORT" -d "$DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG"
+    depends_on:
+      - docker-image-build-push
+
+  # 可选：添加通知步骤
+  - name: notify
+    image: registry.cn-beijing.aliyuncs.com/wangxiaochun/alpine:3.20.0
+    commands:
+      - |
+        echo "构建完成！"
+        echo "构建 #$DRONE_BUILD_NUMBER - $DRONE_BUILD_STATUS"
+        echo "镜像: $DOCKER_REGISTRY/$DOCKER_REPO:$DOCKER_TAG"
+        echo "查看: $DRONE_BUILD_LINK"
+    when:
+      status: [success, failure]
+    depends_on:
+      - docker-run

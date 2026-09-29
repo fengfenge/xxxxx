@@ -1,0 +1,382 @@
+// Java 自动化发布流程 Jenkinsfile
+// 完整流程：代码提交 → Jenkins 构建镜像 → Harbor 存储镜像 → 发布单 → 企业微信通知审批 → 审批通过 → K8s 部署 → 发布记录 → 回滚
+//
+// 环境策略：
+//   auto 模式：仅允许 dev / test 分支 → GitLab Webhook 自动构建部署（无需审批）
+//   branch 模式：Jenkins 参数化手动指定 dev / test 分支 → 手动构建部署（无需审批）
+//   tag  模式：release / master 打 tag → Jenkins 手动 Build with Parameters → 审批 → 部署（uat/prod）
+//   分支过滤：GitLab Webhook 端配合正则 ^(dev|test)$，master/release push 不到 Jenkins
+//
+@Library('devops-shared-lib@master') _
+
+pipeline {
+    agent any
+    options {
+        timestamps()
+        timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+    }
+
+    // ==================== 构建工具版本（需在 Jenkins > Global Tool Configuration 中预先配置） ====================
+    // 默认 JDK8 用于项目编译；安全扫描阶段在 stage 级 tools 覆盖为 JDK17
+    tools {
+        jdk   'JDK8'
+        maven 'Maven3.9'
+    }
+
+    // ==================== GitLab Webhook 自动触发 ====================
+    // 该配置首次运行后会在 Jenkins Job 配置中自动注册
+    // 需安装插件：Generic Webhook Trigger
+    // GitLab Webhook URL：http://jenkins:8080/generic-webhook-trigger/invoke?token=k8s-devops-abc123
+    triggers {
+        GenericTrigger(
+            genericVariables: [
+                [key: 'ref',            value: '$.ref'],
+                [key: 'GIT_BRANCH',     value: '$.ref'],
+                [key: 'GIT_REPO_URL',   value: '$.project.git_http_url'],
+                [key: 'GIT_REPO_NAME',  value: '$.project.name'],
+                [key: 'GITLAB_USER',    value: '$.user_username']
+            ],
+            token: 'k8s-devops-abc123',
+            causeString: 'Triggered by GitLab → $ref',
+            // 仅允许 dev / test 分支 push 触发
+            regexpFilterText: '$ref',
+            regexpFilterExpression: '^(refs/heads/dev|refs/heads/test)$'
+        )
+    }
+
+    parameters {
+        choice(
+            name: 'BUILD_TYPE',
+            choices: ['auto', 'tag'],
+            description: '''构建类型：
+auto：GitLab Webhook 自动触发（仅允许 dev/test 分支）
+tag ：手动指定标签构建（uat/prod 发布）'''
+        )
+        string(
+            name: 'BRANCH_NAME',
+            defaultValue: '',
+            description: '''手动指定 dev/test 分支时填写
+auto  模式：可填写 dev/test，通过白名单校验后按指定分支构建
+dev   - 开发环境
+test  - 测试环境
+            '''
+        )
+        string(
+            name: 'GIT_REPO_URL',
+            defaultValue: '',
+            description: 'Git 仓库地址（Pipeline Script 模式必填；Pipeline script from SCM 模式可不填自动使用 SCM 配置）'
+        )
+        credentials(
+            name: 'GIT_CREDENTIALS_ID',
+            defaultValue: 'gitlab-test-root-credential',
+            description: 'Git 仓库凭据（选择后自动注入到 GIT_CREDENTIALS_ID 变量）',
+            credentialType: 'com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl'
+        )
+        // string(
+        //     name: 'GIT_CREDENTIALS_ID',
+        //     defaultValue: '',
+        //     description: 'Jenkins 凭据 ID'
+        // )   
+        string(
+            name: 'TAG_NAME',
+            defaultValue: '',
+            description: '''标签名（BUILD_TYPE=tag 时必填）
+格式：分支-年月日时分-v版本
+示例：master-202605081053-v1.0.1（生产）、release-202605081053-v1.0.1（预发布）'''
+        )
+        choice(
+            name: 'TARGET_ENV',
+            choices: ['auto', 'uat', 'prod'],
+            description: '''部署环境：
+auto - 自动根据分支/标签识别
+uat  - 预发布
+prod - 生产'''
+        )
+        string(
+            name: 'BUILD_MESSAGE',
+            defaultValue: '',
+            description: '构建说明（记录到发布单）'
+        )
+        string(
+            name: 'K8S_NAMESPACE',
+            defaultValue: '',
+            description: '''K8s 部署目标命名空间（必填）
+示例：general, iot, platform, monitoring
+可在 Jenkins Job 的"参数化构建"中为不同服务设置各自的默认值'''
+        )
+        text(
+            name: 'DOCKERFILE_CONTENT',
+            defaultValue: '',
+            description: '''Dockerfile 内容（可为空，使用项目仓库中的 Dockerfile）
+示例：
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]'''
+        )
+    }
+
+    // 注意：RELEASE_TICKET_ID / IMAGE_TAG 由 pipelineInit / releaseTicket 在运行时注入，
+    // 不要在 environment{} 里用空字符串占位，否则声明式流水线会在 stage 边界将其覆盖为 null/空。
+    // environment {
+    //     IMAGE_TAG = ""
+    //     RELEASE_TICKET_ID = ""
+    // }
+
+    stages {
+        // ==================== 阶段 0：参数验证 ====================
+        stage('0. 参数验证') {
+            steps {
+                script {
+                    echo "=========================================="
+                    echo "📋 构建参数确认"
+                    echo "=========================================="
+                    echo "构建类型：${params.BUILD_TYPE}"
+                    echo "仓库地址：${params.GIT_REPO_URL ?: '（未填，SCM 模式将使用 SCM 配置）'}"
+                    echo "凭据 ID：${params.GIT_CREDENTIALS_ID ?: '（未填）'}"
+                    echo "分支名称：${params.BRANCH_NAME ?: '未指定'}"
+                    echo "标签名称：${params.TAG_NAME ?: '未指定'}"
+                    echo "目标环境：${params.TARGET_ENV}"
+                    echo "构建说明：${params.BUILD_MESSAGE ?: '无'}"
+                    echo "=========================================="
+
+                    // auto 模式：白名单校验，仅允许 dev/test
+                    if (params.BUILD_TYPE == 'auto') {
+                        def branch = params.BRANCH_NAME?.trim() ?: env.GIT_BRANCH ?: ''
+                        // 匹配格式：dev、test、refs/heads/dev、origin/test 等
+                        if (!branch || !(branch ==~ /.*\/?(dev|test)$/)) {
+                            error "❌ auto 模式仅允许 dev/test 分支自动构建，当前分支：${branch}"
+                        }
+                        // Pipeline Script 模式无 SCM，GIT_REPO_URL 必填
+                        if (!params.GIT_REPO_URL?.trim() && scm == null) {
+                            error "❌ Pipeline Script 模式下 auto 模式必须指定 GIT_REPO_URL"
+                        }
+                        echo "✅ auto 模式，分支 ${branch} 通过白名单校验"
+                    }
+
+                    // branch 模式：必须指定 dev/test 分支
+                    if (params.BUILD_TYPE == 'branch') {
+                        if (!(params.BRANCH_NAME in ['dev', 'test'])) {
+                            error "❌ branch 模式必须指定 BRANCH_NAME=dev 或 test"
+                        }
+                        if (!params.GIT_REPO_URL?.trim() && scm == null) {
+                            error "❌ Pipeline Script 模式下 branch 模式必须指定 GIT_REPO_URL"
+                        }
+                        if (params.TARGET_ENV != 'auto' && params.TARGET_ENV != params.BRANCH_NAME) {
+                            error "❌ branch 模式下 TARGET_ENV 必须为 auto，或与 BRANCH_NAME 保持一致"
+                        }
+                        echo "✅ branch 模式，手动构建 ${params.BRANCH_NAME} 分支"
+                    }
+
+                    // tag 模式：必须指定 TAG_NAME
+                    if (params.BUILD_TYPE == 'tag') {
+                        if (!params.TAG_NAME?.trim()) {
+                            error "❌ tag 模式必须指定 TAG_NAME"
+                        }
+                        if (!params.GIT_REPO_URL?.trim()) {
+                            error "❌ tag 模式必须指定 GIT_REPO_URL"
+                        }
+                        if (!(params.TARGET_ENV in ['uat', 'prod'])) {
+                            error "❌ tag 模式下 TARGET_ENV 仅允许uat、prod"
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== 阶段 1：应用构建参数 ====================
+        stage('1. 参数处理') {
+            steps {
+                script {
+                    paramBuild(
+                        buildType: params.BUILD_TYPE,
+                        branch: params.BRANCH_NAME,
+                        tag: params.TAG_NAME,
+                        env: params.TARGET_ENV == 'auto' ? '' : params.TARGET_ENV,
+                        deploy: true,
+                        gitRepoUrl: params.GIT_REPO_URL,
+                        gitCredentialsId: params.GIT_CREDENTIALS_ID,
+                        k8sNamespace: params.K8S_NAMESPACE
+                    )
+                }
+            }
+        }
+
+        // ==================== 阶段 2：拉取代码 ====================
+        stage('2. 拉代码') {
+            steps {
+                script {
+                    gitCheckout(
+                        buildType: params.BUILD_TYPE,
+                        branch: params.BRANCH_NAME,
+                        tag: params.TAG_NAME,
+                        repoUrl: params.GIT_REPO_URL,
+                        credentialsId: params.GIT_CREDENTIALS_ID
+                    )
+                }
+            }
+        }
+
+        // ==================== 阶段 3：代码扫描 ====================
+        // SonarQube scanner 需要 JDK17，通过 stage 级 tools 覆盖 pipeline 级 JDK8
+        stage('3. 代码扫描') {
+            tools {
+                jdk 'JDK17'
+            }
+            steps {
+                script {
+                    securityCheck(scanType: 'code')
+                }
+            }
+        }
+
+        // ==================== 阶段 4：流水线初始化 + 创建发布单 ====================
+        stage('4. 初始化') {
+            steps {
+                script {
+                    // pipelineInit()
+                    pipelineInit()
+                }
+            }
+        }
+
+        // ==================== 阶段 5：上传依赖到 Nexus ====================
+        stage('5. 上传依赖到 Nexus') {
+            steps {
+                script {
+                    mavenDeployToNexus()
+                }
+            }
+        }
+
+        // ==================== 阶段 6：编译构建 ====================
+        stage('6. 编译') {
+            steps {
+                script {
+                    javamavenBuild()
+                }
+            }
+        }
+
+        // ==================== 阶段 7：镜像构建与推送（→ Harbor） ====================
+        stage('7. 镜像') {
+            steps {
+                script {
+                    dockerBuildPush(dockerfile: params.DOCKERFILE_CONTENT)
+                }
+            }
+        }
+
+        // ==================== 阶段 8：审批门禁（仅 uat/prod 执行） ====================
+        stage('8. 审批') {
+            when {
+                expression {
+                    def currentEnv = (env.ENV ?: '').toLowerCase()
+                    return env.SHOULD_DEPLOY == 'true' && ['uat', 'prod'].contains(currentEnv)
+                }
+            }
+            steps {
+                script {
+                    approveProd()
+                }
+            }
+        }
+
+        // ==================== 阶段 9：K8s 容器部署 ====================
+        stage('9. 部署') {
+            when {
+                expression { return env.SHOULD_DEPLOY == 'true' }
+            }
+            steps {
+                script {
+                    k8sDeploy()
+                }
+            }
+        }
+
+        // ==================== 阶段 10：发布记录确认 ====================
+        stage('10. 发布确认') {
+            steps {
+                script {
+                    def ticket = releaseTicket.getTicket(env: env.ENV)
+                    if (ticket) {
+                        def approvalRequired = ['uat', 'prod'].contains((ticket.environment ?: '').toString().toLowerCase())
+                        def approverDisplay = ticket.approver ?: ticket.approvedBy ?: (approvalRequired ? '审批人未回写' : '无需审批')
+                        def approveMethodDisplay = ticket.approveMethod ?: (approvalRequired ? '人工审批' : '无需审批')
+
+                        echo "=========================================="
+                        echo "📋 发布记录确认"
+                        echo "=========================================="
+                        echo "发布单号：${ticket.ticketId}"
+                        echo "服务名称：${ticket.serviceName}"
+                        echo "目标环境：${ticket.environment}"
+                        echo "镜像版本：${ticket.imageTag}"
+                        echo "触发类型：${ticket.triggerType}"
+                        echo "触发人　：${ticket.triggerUser}"
+                        echo "审批方式：${approveMethodDisplay}"
+                        echo "审批人　：${approverDisplay}"
+                        echo "当前状态：${ticket.status}"
+                        echo "创建时间：${ticket.createdAt}"
+                        echo "完成时间：${ticket.finishedAt ?: '未完成'}"
+                        echo "=========================================="
+                    } else {
+                        echo "⚠️ 未找到发布单信息"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "=========================================="
+                echo "📊 构建总结"
+                echo "=========================================="
+                echo "构建结果：${currentBuild.result ?: 'SUCCESS'}"
+                echo "环境　　：${env.ENV}"
+                echo "镜像　　：${env.IMAGE}"
+                echo "发布单号：${env.RELEASE_TICKET_ID ?: '无'}"
+                echo "=========================================="
+            }
+        }
+        success {
+            script {
+                messageNotify("SUCCESS")
+            }
+        }
+        failure {
+            script {
+                if (env.RELEASE_TICKET_ID) {
+                    def ticket = releaseTicket.getTicket(env: env.ENV)
+                    if (ticket && ticket.status == 'pending') {
+                        releaseTicket.updateStatus(
+                            ticketId: env.RELEASE_TICKET_ID,
+                            env: env.ENV,
+                            status: 'failed',
+                            detail: '流水线失败'
+                        )
+                    }
+                }
+                messageNotify("FAILED")
+            }
+        }
+        aborted {
+            script {
+                messageNotify("ABORTED")
+                if (env.RELEASE_TICKET_ID) {
+                    releaseTicket.updateStatus(
+                        ticketId: env.RELEASE_TICKET_ID,
+                        env: env.ENV,
+                        status: 'failed',
+                        action: 'pipeline_aborted',
+                        detail: '流水线被中止'
+                    )
+                }
+            }
+        }
+    }
+}

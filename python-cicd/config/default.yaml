@@ -1,0 +1,85 @@
+# 默认配置 — 与 src/com/devops/Config.groovy 保持一致，便于 Python 侧独立运行
+# 生产环境可通过 params.config_path 或环境变量 CICD_CONFIG 覆盖
+
+registry: harbor.your-company.com
+project: backend-services
+
+env_map:
+  dev: dev
+  test: test
+
+env_prefix_map:
+  "dev-": dev
+  "test-": test
+
+tag_env_map:
+  "release-\\d{12}-v\\d+\\.\\d+\\.\\d+": uat
+  "master-\\d{12}-v\\d+\\.\\d+\\.\\d+": prod
+
+build_strategy:
+  dev:
+    trigger: branch
+    source: dev
+    versionPattern: "^NA$"
+    requireTag: false
+    autoDeploy: true
+    manualOnly: false
+    skipTests: true
+    requireApproval: false
+  test:
+    trigger: branch
+    source: test
+    versionPattern: "^NA$"
+    requireTag: false
+    autoDeploy: true
+    manualOnly: false
+    skipTests: false
+    requireApproval: false
+  uat:
+    trigger: tag
+    source: release
+    versionPattern: "release-\\d{12}-v\\d+\\.\\d+\\.\\d+"
+    requireTag: true
+    autoDeploy: true
+    manualOnly: true
+    skipTests: false
+    requireApproval: true
+  prod:
+    trigger: tag
+    source: master
+    versionPattern: "master-\\d{12}-v\\d+\\.\\d+\\.\\d+"
+    requireTag: true
+    autoDeploy: true
+    manualOnly: true
+    skipTests: false
+    requireApproval: true
+
+k8s_credentials:
+  prod: kubeconfig-prod
+  staging: kubeconfig-staging
+  uat: kubeconfig-uat
+  test: kubeconfig-test
+  dev: kubeconfig-dev
+
+image_tag_timezone: Asia/Shanghai
+
+dingtalk_webhook: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN"
+wecom_webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+
+wecom_approve_mode: simple
+wecom_corp_id: ""
+wecom_app_agent_id: ""
+wecom_app_secret_credentials_id: ""
+wecom_approval_template_id: ""
+approval_timeout_minutes: 30
+approver_users: "admin,devops,release-manager"
+
+release_record_dir: /var/jenkins_home/release-records
+release_ticket_prefix: REL
+release_record_retention_days: 180
+approval_env_list:
+  - uat
+  - staging
+  - prod
+
+harbor_credentials_id: harbor-credentials
